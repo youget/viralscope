@@ -1,6 +1,6 @@
 import { Flame, Zap, Heart, ArrowRight } from 'lucide-react'
 
-const features = [
+const features = [2
   {
     icon: Flame,
     title: 'Viral Videos',
