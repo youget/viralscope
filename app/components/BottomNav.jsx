@@ -84,4 +84,66 @@ export default function BottomNav() {
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              
+              className="w-10 h-1 rounded-full mx-auto mb-4"
+              style={{ backgroundColor: 'var(--vs-border)' }}
+            />
+            <div className="grid grid-cols-3 gap-2 max-w-sm mx-auto">
+              {subMenus[activeMenu]?.map((sub, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleSubItem(sub)}
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl vs-hover transition-colors"
+                >
+                  <span className="text-2xl">{sub.icon}</span>
+                  <span className="text-xs font-medium vs-text">{sub.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {popup && popupData[popup] && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6"
+          onClick={() => setPopup(null)}
+        >
+          <div
+            className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-4xl mb-3">{popupData[popup].emoji}</p>
+            <h3 className="text-lg font-bold vs-text mb-2">{popupData[popup].title}</h3>
+            <p className="text-sm vs-text-sub mb-5 leading-relaxed">{popupData[popup].desc}</p>
+            <button
+              onClick={() => setPopup(null)}
+              className="vs-btn px-6 py-2.5 rounded-xl text-sm font-semibold"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      <nav className="fixed bottom-0 left-0 right-0 z-40 vs-glass border-t vs-border">
+        <div className="flex items-center justify-around h-[68px] max-w-lg mx-auto px-2">
+          {navItems.map((item, i) => {
+            const Icon = item.icon
+            const isActive = activeMenu === item.menu
+            return (
+              <button
+                key={i}
+                onClick={() => handleNav(item)}
+                className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors"
+                style={{ color: isActive ? 'var(--vs-accent)' : 'var(--vs-text-sub)' }}
+              >
+                <Icon size={20} />
+                <span className="text-[10px] font-semibold">{item.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
+    </>
+  )
+}
