@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Send, MessageSquare, Mic, Film, Sparkles, Shuffle, Download, Heart, Loader2, ChevronDown, ExternalLink, Key, X, Play, Music, Trash2 } from 'lucide-react'
+import { Send, MessageSquare, Mic, Film, Sparkles, Shuffle, Download, Loader2, ChevronDown, ExternalLink, Key, RefreshCw, Play, Music, X } from 'lucide-react'
 
 const FAV_AI_KEY = 'vs-fav-ai'
 const RECENT_KEY = 'vs-recent-ai'
@@ -8,26 +8,20 @@ const USER_KEY_STORAGE = 'vs-user-polli-key'
 const FLUX2_KEY = 'vs-flux2dev-usage'
 
 const CHAT_MODELS = [
-  { id: 'qwen-safety', label: 'Safe Mode', tag: '🛡️', desc: 'General chat', free: true },
+  { id: 'nova-fast', label: 'Safe Mode', tag: '🛡️', desc: 'Fast & reliable', free: true },
   { id: 'qwen-character', label: 'Unhinged Mode', tag: '🔥', desc: 'Creative & roleplay', free: true },
   { id: 'gemini-fast', label: 'Pro Mode', tag: '🔑', desc: 'Vision, search, code', free: false },
 ]
 
-const FREE_IMG = [
+const ALL_IMG_MODELS = [
   { id: 'flux', label: 'Flux Schnell', desc: '4.8K imgs', type: 'free' },
   { id: 'zimage', label: 'Z-Image Turbo', desc: '4.3K imgs', type: 'free' },
-]
-
-const LIMITED_IMG = [
   { id: 'flux-2-dev', label: 'FLUX.2 Dev', desc: '2/day free', type: 'limited' },
-]
-
-const BYOP_IMG = [
-  { id: 'imagen-4', label: 'Imagen 4', desc: '400 imgs' },
-  { id: 'grok-imagine', label: 'Grok Imagine', desc: '400 imgs' },
-  { id: 'klein', label: 'Klein 4B', desc: '100 imgs' },
-  { id: 'klein-large', label: 'Klein 9B', desc: '85 imgs' },
-  { id: 'gptimage', label: 'GPT Image', desc: '75 imgs' },
+  { id: 'imagen-4', label: 'Imagen 4', desc: '400 imgs', type: 'byop' },
+  { id: 'grok-imagine', label: 'Grok Imagine', desc: '400 imgs', type: 'byop' },
+  { id: 'klein', label: 'Klein 4B', desc: '100 imgs', type: 'byop' },
+  { id: 'klein-large', label: 'Klein 9B', desc: '85 imgs', type: 'byop' },
+  { id: 'gptimage', label: 'GPT Image', desc: '75 imgs', type: 'byop' },
 ]
 
 const SIZES = [
@@ -55,6 +49,17 @@ const RANDOM_PROMPTS = [
   'A capybara relaxing in a hot tub with sunglasses',
 ]
 
+const LOADING_MSGS = [
+  'Cooking your image...',
+  'Teaching the AI to draw...',
+  'Summoning pixels from the void...',
+  'The AI is having a creative moment...',
+  'Generating something potentially cursed...',
+  'Asking the AI nicely...',
+  'Brewing some digital art...',
+  'The hamsters are running the wheel...',
+]
+
 const ERR = {
   quota_exceeded: { emoji: '😭', title: "Free vibes ran out bestie", desc: "Your daily pollen is gone. Drop your own API key to keep the party going, or come back tomorrow for a refill." },
   invalid_key: { emoji: '🫠', title: "That key ain't it chief", desc: "Double check your API key and try again. Make sure you copied the whole thing." },
@@ -71,7 +76,6 @@ function addFavAI(item) { const l = getFavAI(); l.unshift(item); localStorage.se
 function getUserKey() { try { return localStorage.getItem(USER_KEY_STORAGE) || '' } catch { return '' } }
 function saveUserKey(k) { localStorage.setItem(USER_KEY_STORAGE, k) }
 function clearUserKey() { localStorage.removeItem(USER_KEY_STORAGE) }
-
 function getFlux2Usage() {
   try {
     const d = JSON.parse(localStorage.getItem(FLUX2_KEY) || '{}')
@@ -83,6 +87,7 @@ function addFlux2Usage() {
   const u = getFlux2Usage(); u.count += 1
   localStorage.setItem(FLUX2_KEY, JSON.stringify(u)); return u
 }
+function randomLoadingMsg() { return LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)] }
 
 export default function AIPage() {
   const [tab, setTab] = useState('chat')
@@ -92,8 +97,9 @@ export default function AIPage() {
   const [keyInput, setKeyInput] = useState('')
   const [keyReason, setKeyReason] = useState('')
   const [pendingAction, setPendingAction] = useState(null)
+  const [loadingMsg, setLoadingMsg] = useState('')
 
-  const [chatModel, setChatModel] = useState('qwen-safety')
+  const [chatModel, setChatModel] = useState('nova-fast')
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [chatMessages, setChatMessages] = useState([
     { role: 'assistant', content: "Yo what's good! Pick a mode above and ask me anything — I'm only slightly unhinged." }
@@ -104,6 +110,7 @@ export default function AIPage() {
 
   const [imgPrompt, setImgPrompt] = useState('')
   const [imgModel, setImgModel] = useState('flux')
+  const [showImgModelPicker, setShowImgModelPicker] = useState(false)
   const [imgSize, setImgSize] = useState(0)
   const [imgLoading, setImgLoading] = useState(false)
   const [imgResult, setImgResult] = useState(null)
@@ -148,6 +155,8 @@ export default function AIPage() {
     } catch { setBalance(null) }
   }
 
+  function hasKey() { return !!getUserKey() }
+
   function requireKey(reason, action) {
     const k = getUserKey()
     if (k) { setUserKey(k); if (action) action(k); return true }
@@ -167,39 +176,43 @@ export default function AIPage() {
     setPendingAction(null)
   }
 
-  function handleKeyClear() {
-    clearUserKey()
-    setUserKey('')
-  }
+  function handleKeyClear() { clearUserKey(); setUserKey('') }
 
   function handleApiError(err) {
-    if (err === 'quota_exceeded') {
-      setKeyReason('quota')
-      setShowKeyPopup(true)
-      return
-    }
+    if (err === 'quota_exceeded') { setKeyReason('quota'); setShowKeyPopup(true); return }
     setErrorPopup(ERR[err] || ERR.api_error)
   }
 
   function switchTab(t) {
     if (t === 'voice' || t === 'video') {
       const k = getUserKey()
-      if (!k) {
-        requireKey(t === 'voice' ? 'voice' : 'video', () => setTab(t))
-        return
-      }
+      if (!k) { requireKey(t, () => setTab(t)); return }
     }
     setTab(t)
   }
 
   const currentChatModel = CHAT_MODELS.find(m => m.id === chatModel) || CHAT_MODELS[0]
+  const currentImgModel = ALL_IMG_MODELS.find(m => m.id === imgModel) || ALL_IMG_MODELS[0]
+  const flux2Usage = getFlux2Usage()
+
+  function getImgModelTag(m) {
+    if (hasKey()) return ''
+    if (m.type === 'free') return ' ✨'
+    if (m.type === 'limited') return ' ⚡'
+    if (m.type === 'byop') return ' 🔑'
+    return ''
+  }
+
+  function getChatModelTag(m) {
+    if (hasKey() && !m.free) return '⚡'
+    return m.tag
+  }
 
   async function handleChat(e) {
     e.preventDefault()
     if (!chatInput.trim() || chatLoading) return
     if (!currentChatModel.free) {
-      requireKey('pro_chat', (k) => { doChat(chatInput.trim(), k) })
-      if (!getUserKey()) return
+      if (!hasKey()) { requireKey('pro_chat', (k) => doChat(chatInput.trim(), k)); return }
     }
     doChat(chatInput.trim(), getUserKey())
   }
@@ -231,34 +244,44 @@ export default function AIPage() {
     fetchBalance()
   }
 
-  async function handleGenerate() {
+  function selectImgModel(m) {
+    if (m.type === 'byop' && !hasKey()) {
+      requireKey('byop_image', () => { setImgModel(m.id); setShowImgModelPicker(false) })
+      return
+    }
+    setImgModel(m.id)
+    setShowImgModelPicker(false)
+  }
+
+  async function handleGenerate(overrideSeed) {
     if (!imgPrompt.trim() || imgLoading) return
 
-    const isBYOP = BYOP_IMG.some(m => m.id === imgModel)
-    if (isBYOP) {
-      requireKey('byop_image', (k) => doGenerate(k))
-      if (!getUserKey()) return
+    const isBYOP = currentImgModel.type === 'byop'
+    if (isBYOP && !hasKey()) {
+      requireKey('byop_image', (k) => doGenerate(k, overrideSeed))
+      return
     }
 
-    if (imgModel === 'flux-2-dev') {
+    if (imgModel === 'flux-2-dev' && !hasKey()) {
       const usage = getFlux2Usage()
-      if (usage.count >= 2 && !getUserKey()) {
-        requireKey('flux2_limit', (k) => doGenerate(k))
+      if (usage.count >= 2) {
+        requireKey('flux2_limit', (k) => doGenerate(k, overrideSeed))
         return
       }
     }
 
-    doGenerate(getUserKey())
+    doGenerate(getUserKey(), overrideSeed)
   }
 
-  async function doGenerate(uKey) {
+  async function doGenerate(uKey, overrideSeed) {
     setImgLoading(true)
     setImgError(null)
     setImgResult(null)
+    setLoadingMsg(randomLoadingMsg())
     const size = SIZES[imgSize]
-    const seed = Math.floor(Math.random() * 999999)
+    const seed = overrideSeed || Math.floor(Math.random() * 999999)
     try {
-      const isBYOP = BYOP_IMG.some(m => m.id === imgModel)
+      const isBYOP = currentImgModel.type === 'byop'
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -275,9 +298,11 @@ export default function AIPage() {
       })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setImgLoading(false); return }
-      setImgResult({ url: data.image, prompt: imgPrompt, model: imgModel, size: size.label, seed })
-      const newRecent = addRecent({ url: data.image, prompt: imgPrompt, model: imgModel, size: size.label, seed })
+      const result = { url: data.image, prompt: imgPrompt, model: imgModel, size: size.label, seed }
+      setImgResult(result)
+      const newRecent = addRecent(result)
       setRecent(newRecent)
+      addFavAI(result)
       if (imgModel === 'flux-2-dev') addFlux2Usage()
     } catch (err) {
       setImgError(err.message)
@@ -286,10 +311,9 @@ export default function AIPage() {
     fetchBalance()
   }
 
-  function handleSaveAI() {
+  function handleRegenerate() {
     if (!imgResult) return
-    addFavAI({ url: imgResult.url, prompt: imgResult.prompt, model: imgResult.model, size: imgResult.size, seed: imgResult.seed })
-    alert('Saved to favorites!')
+    handleGenerate(imgResult.seed)
   }
 
   function handleDownload() {
@@ -298,6 +322,12 @@ export default function AIPage() {
     a.href = imgResult.url
     a.download = `viralscope-${Date.now()}.png`
     a.click()
+  }
+
+  function handleClickRecent(item) {
+    setImgPrompt(item.prompt)
+    setImgResult(item)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handleVoiceGenerate() {
@@ -372,8 +402,6 @@ export default function AIPage() {
     { id: 'video', label: 'Video', icon: Film },
   ]
 
-  const flux2Usage = getFlux2Usage()
-
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-black vs-text text-center mb-1">
@@ -383,37 +411,28 @@ export default function AIPage() {
         create unhinged stuff with artificial brainpower
       </p>
 
-      {/* Balance */}
-      <div className="flex items-center justify-center gap-2 mb-5">
+      {/* Balance + Key */}
+      <div className="flex items-center justify-center gap-2 mb-5 flex-wrap">
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
           <Sparkles size={10} style={{ color: 'var(--vs-accent)' }} />
           {balance !== null ? (
             <span className="vs-text-sub">
-              {balance > 0
-                ? `${balance.toFixed(2)} pollen left`
-                : 'Pollen depleted'
-              }
+              {balance > 0 ? `${balance.toFixed(3)} pollen left` : 'Pollen depleted'}
             </span>
           ) : (
-            <span className="vs-text-sub">Loading balance...</span>
+            <span className="vs-text-sub">Loading...</span>
           )}
           {balance !== null && balance <= 0 && (
-            <button
-              onClick={() => { setKeyReason('quota'); setShowKeyPopup(true) }}
+            <button onClick={() => { setKeyReason('quota'); setShowKeyPopup(true) }}
               className="ml-1 px-2 py-0.5 rounded text-[9px] font-bold text-white"
-              style={{ backgroundColor: 'var(--vs-accent)' }}
-            >
-              Add Key
-            </button>
+              style={{ backgroundColor: 'var(--vs-accent)' }}>Add Key</button>
           )}
         </div>
         {userKey && (
           <div className="flex items-center gap-1 px-2 py-1 rounded-full vs-card border vs-border text-[10px]">
             <Key size={9} style={{ color: 'var(--vs-accent)' }} />
-            <span className="vs-text-sub">Your key active</span>
-            <button onClick={handleKeyClear} className="ml-1 vs-text-sub hover:underline text-[9px]">
-              remove
-            </button>
+            <span className="vs-text-sub">Key active</span>
+            <button onClick={handleKeyClear} className="ml-1 vs-text-sub hover:underline text-[9px]">remove</button>
           </div>
         )}
       </div>
@@ -423,17 +442,10 @@ export default function AIPage() {
         {tabs.map((t) => {
           const Icon = t.icon
           return (
-            <button
-              key={t.id}
-              onClick={() => switchTab(t.id)}
+            <button key={t.id} onClick={() => switchTab(t.id)}
               className="flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
-              style={{
-                backgroundColor: tab === t.id ? 'var(--vs-accent)' : 'transparent',
-                color: tab === t.id ? '#fff' : 'var(--vs-text-sub)',
-              }}
-            >
-              <Icon size={14} />
-              {t.label}
+              style={{ backgroundColor: tab === t.id ? 'var(--vs-accent)' : 'transparent', color: tab === t.id ? '#fff' : 'var(--vs-text-sub)' }}>
+              <Icon size={14} />{t.label}
             </button>
           )
         })}
@@ -443,11 +455,9 @@ export default function AIPage() {
       {tab === 'chat' && (
         <div className="flex flex-col" style={{ height: 'calc(100vh - 340px)' }}>
           <div className="mb-3">
-            <button
-              onClick={() => setShowModelPicker(!showModelPicker)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full"
-            >
-              <span>{currentChatModel.tag}</span>
+            <button onClick={() => setShowModelPicker(!showModelPicker)}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full">
+              <span>{getChatModelTag(currentChatModel)}</span>
               <span className="flex-1 text-left">{currentChatModel.label}</span>
               <span className="vs-text-sub text-[10px]">{currentChatModel.desc}</span>
               <ChevronDown size={14} className="vs-text-sub" style={{ transform: showModelPicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
@@ -455,19 +465,14 @@ export default function AIPage() {
             {showModelPicker && (
               <div className="vs-card border vs-border rounded-xl mt-1">
                 {CHAT_MODELS.map((m) => (
-                  <button
-                    key={m.id}
+                  <button key={m.id}
                     onClick={() => {
-                      if (!m.free && !getUserKey()) {
-                        requireKey('pro_chat', () => { setChatModel(m.id); setShowModelPicker(false) })
-                        return
-                      }
+                      if (!m.free && !hasKey()) { requireKey('pro_chat', () => { setChatModel(m.id); setShowModelPicker(false) }); return }
                       setChatModel(m.id); setShowModelPicker(false)
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-xs vs-hover border-b vs-border last:border-b-0"
-                    style={{ color: chatModel === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}
-                  >
-                    <span>{m.tag}</span>
+                    style={{ color: chatModel === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}>
+                    <span>{getChatModelTag(m)}</span>
                     <span className="flex-1 text-left font-semibold">{m.label}</span>
                     <span className="vs-text-sub text-[10px]">{m.desc}</span>
                   </button>
@@ -476,17 +481,13 @@ export default function AIPage() {
             )}
           </div>
 
-          <button onClick={() => setChatMessages([{ role: 'assistant', content: "Fresh start! What's on your mind?" }])} className="text-[10px] vs-text-sub hover:underline mb-2 self-end">
-            Clear chat
-          </button>
+          <button onClick={() => setChatMessages([{ role: 'assistant', content: "Fresh start! What's on your mind?" }])} className="text-[10px] vs-text-sub hover:underline mb-2 self-end">Clear chat</button>
 
           <div className="flex-1 overflow-y-auto flex flex-col gap-3 mb-4 pr-1">
             {chatMessages.map((msg, i) => (
-              <div
-                key={i}
+              <div key={i}
                 className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'self-end text-white rounded-br-sm' : 'self-start vs-card border vs-border vs-text rounded-bl-sm'}`}
-                style={msg.role === 'user' ? { backgroundColor: 'var(--vs-accent)' } : {}}
-              >
+                style={msg.role === 'user' ? { backgroundColor: 'var(--vs-accent)' } : {}}>
                 {msg.content}
               </div>
             ))}
@@ -499,7 +500,8 @@ export default function AIPage() {
           </div>
 
           <form onSubmit={handleChat} className="flex gap-2">
-            <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Say something..." className="flex-1 py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none" style={{ backgroundColor: 'var(--vs-card)' }} />
+            <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Say something..."
+              className="flex-1 py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none" style={{ backgroundColor: 'var(--vs-card)' }} />
             <button type="submit" disabled={chatLoading} className="vs-btn w-11 h-11 rounded-xl flex-shrink-0"><Send size={16} /></button>
           </form>
         </div>
@@ -508,54 +510,55 @@ export default function AIPage() {
       {/* ===== IMAGE ===== */}
       {tab === 'image' && (
         <div>
+          {/* Model Dropdown */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Model</p>
-            <div className="flex flex-wrap gap-2">
-              {FREE_IMG.map((m) => (
-                <button key={m.id} onClick={() => setImgModel(m.id)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={{ backgroundColor: imgModel === m.id ? 'var(--vs-accent)' : 'var(--vs-card)', color: imgModel === m.id ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${imgModel === m.id ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}
-                >
-                  {m.label} ✨
-                </button>
-              ))}
-              {LIMITED_IMG.map((m) => (
-                <button key={m.id} onClick={() => setImgModel(m.id)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={{ backgroundColor: imgModel === m.id ? 'var(--vs-accent)' : 'var(--vs-card)', color: imgModel === m.id ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${imgModel === m.id ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}
-                >
-                  {m.label} ⚡ {flux2Usage.count}/2
-                </button>
-              ))}
-              {BYOP_IMG.map((m) => (
-                <button key={m.id}
-                  onClick={() => { requireKey('byop_image', () => setImgModel(m.id)) }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub"
-                >
-                  {m.label} 🔑
-                </button>
-              ))}
-            </div>
-            <p className="text-[10px] vs-text-sub mt-1.5">✨ Free • ⚡ Limited daily • 🔑 Needs key</p>
+            <button onClick={() => setShowImgModelPicker(!showImgModelPicker)}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full">
+              <Sparkles size={12} style={{ color: 'var(--vs-accent)' }} />
+              <span className="flex-1 text-left">{currentImgModel.label}{getImgModelTag(currentImgModel)}</span>
+              <span className="vs-text-sub text-[10px]">{currentImgModel.desc}</span>
+              {imgModel === 'flux-2-dev' && !hasKey() && <span className="text-[9px] vs-text-sub">{flux2Usage.count}/2</span>}
+              <ChevronDown size={14} className="vs-text-sub" style={{ transform: showImgModelPicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+            </button>
+            {showImgModelPicker && (
+              <div className="vs-card border vs-border rounded-xl mt-1 max-h-60 overflow-y-auto">
+                {ALL_IMG_MODELS.map((m) => (
+                  <button key={m.id} onClick={() => selectImgModel(m)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-xs vs-hover border-b vs-border last:border-b-0"
+                    style={{ color: imgModel === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}>
+                    <span className="flex-1 text-left font-semibold">{m.label}{getImgModelTag(m)}</span>
+                    <span className="vs-text-sub text-[10px]">{m.desc}</span>
+                    {m.id === 'flux-2-dev' && !hasKey() && <span className="text-[9px] vs-text-sub">{flux2Usage.count}/2</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!hasKey() && <p className="text-[10px] vs-text-sub mt-1.5">✨ Free • ⚡ Limited daily • 🔑 Needs key</p>}
           </div>
 
+          {/* Size */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Size</p>
             <div className="flex gap-2">
               {SIZES.map((s, i) => (
                 <button key={i} onClick={() => setImgSize(i)}
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={{ backgroundColor: imgSize === i ? 'var(--vs-accent)' : 'var(--vs-card)', color: imgSize === i ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${imgSize === i ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}
-                >{s.label}</button>
+                  style={{ backgroundColor: imgSize === i ? 'var(--vs-accent)' : 'var(--vs-card)', color: imgSize === i ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${imgSize === i ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
+                  {s.label}
+                </button>
               ))}
             </div>
           </div>
 
+          {/* Prompt */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Prompt</p>
-            <textarea value={imgPrompt} onChange={(e) => setImgPrompt(e.target.value)} placeholder="Describe what you want to see..." rows={3} className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none" style={{ backgroundColor: 'var(--vs-card)' }} />
+            <textarea value={imgPrompt} onChange={(e) => setImgPrompt(e.target.value)} placeholder="Describe what you want to see..." rows={3}
+              className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none" style={{ backgroundColor: 'var(--vs-card)' }} />
             <div className="flex gap-2 mt-2 flex-wrap">
-              <button onClick={() => setImgPrompt(RANDOM_PROMPTS[Math.floor(Math.random() * RANDOM_PROMPTS.length)])} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover">
+              <button onClick={() => setImgPrompt(RANDOM_PROMPTS[Math.floor(Math.random() * RANDOM_PROMPTS.length)])}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover">
                 <Shuffle size={12} /> Random
               </button>
               <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub cursor-pointer">
@@ -565,17 +568,21 @@ export default function AIPage() {
             </div>
           </div>
 
-          <button onClick={handleGenerate} disabled={imgLoading || !imgPrompt.trim()} className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2" style={{ opacity: imgLoading || !imgPrompt.trim() ? 0.5 : 1 }}>
-            {imgLoading ? (<><Loader2 size={16} className="animate-spin" /> Cooking your image...</>) : (<><Sparkles size={16} /> Generate</>)}
+          {/* Generate */}
+          <button onClick={() => handleGenerate()} disabled={imgLoading || !imgPrompt.trim()}
+            className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2"
+            style={{ opacity: imgLoading || !imgPrompt.trim() ? 0.5 : 1 }}>
+            {imgLoading ? (<><Loader2 size={16} className="animate-spin" /> {loadingMsg}</>) : (<><Sparkles size={16} /> Generate</>)}
           </button>
 
+          {/* Error */}
           {imgError && (
             <div className="vs-card border vs-border rounded-xl p-4 text-center mb-6">
-              <p className="text-xl mb-1">💀</p>
-              <p className="text-xs vs-text-sub">{imgError}</p>
+              <p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{imgError}</p>
             </div>
           )}
 
+          {/* Result */}
           {imgResult && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-6">
               <img src={imgResult.url} alt={imgResult.prompt} className="w-full" />
@@ -584,12 +591,13 @@ export default function AIPage() {
                 <p className="text-[10px] vs-text-sub mb-3">Model: {imgResult.model} • Size: {imgResult.size} • Seed: {imgResult.seed}</p>
                 <div className="flex gap-2">
                   <button onClick={handleDownload} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-semibold gap-1"><Download size={14} /> Download</button>
-                  <button onClick={handleSaveAI} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1"><Heart size={14} /> Save</button>
+                  <button onClick={handleRegenerate} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1"><RefreshCw size={14} /> Regenerate</button>
                 </div>
               </div>
             </div>
           )}
 
+          {/* Recent */}
           {recent.length > 0 && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-3">
@@ -598,12 +606,13 @@ export default function AIPage() {
               </div>
               <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
                 {recent.map((item, i) => (
-                  <button key={i} onClick={() => { setImgPrompt(item.prompt); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border vs-border vs-hover">
+                  <button key={i} onClick={() => handleClickRecent(item)}
+                    className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border vs-border vs-hover">
                     <img src={item.url} alt={item.prompt} className="w-full h-full object-cover" loading="lazy" />
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] vs-text-sub mt-2">Click to reuse prompt. All saved in <a href="/favorites?tab=ai" className="underline">Favorites</a>.</p>
+              <p className="text-[10px] vs-text-sub mt-2">Click to view. Auto-saved in <a href="/favorites?tab=ai" className="underline">Favorites</a>.</p>
             </div>
           )}
         </div>
@@ -615,12 +624,14 @@ export default function AIPage() {
           <div className="flex gap-2 mb-5">
             <button onClick={() => setVoiceMode('tts')}
               className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"
-              style={{ backgroundColor: voiceMode === 'tts' ? 'var(--vs-accent)' : 'var(--vs-card)', color: voiceMode === 'tts' ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${voiceMode === 'tts' ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}
-            ><Mic size={14} /> Text to Speech</button>
+              style={{ backgroundColor: voiceMode === 'tts' ? 'var(--vs-accent)' : 'var(--vs-card)', color: voiceMode === 'tts' ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${voiceMode === 'tts' ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
+              <Mic size={14} /> Text to Speech
+            </button>
             <button onClick={() => setVoiceMode('music')}
               className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"
-              style={{ backgroundColor: voiceMode === 'music' ? 'var(--vs-accent)' : 'var(--vs-card)', color: voiceMode === 'music' ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${voiceMode === 'music' ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}
-            ><Music size={14} /> Music Gen</button>
+              style={{ backgroundColor: voiceMode === 'music' ? 'var(--vs-accent)' : 'var(--vs-card)', color: voiceMode === 'music' ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${voiceMode === 'music' ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
+              <Music size={14} /> Music Gen
+            </button>
           </div>
 
           {voiceMode === 'tts' && (
@@ -630,8 +641,9 @@ export default function AIPage() {
                 {VOICES.map((v) => (
                   <button key={v} onClick={() => setVoiceVoice(v)}
                     className="px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all"
-                    style={{ backgroundColor: voiceVoice === v ? 'var(--vs-accent)' : 'var(--vs-card)', color: voiceVoice === v ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${voiceVoice === v ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}
-                  >{v}</button>
+                    style={{ backgroundColor: voiceVoice === v ? 'var(--vs-accent)' : 'var(--vs-card)', color: voiceVoice === v ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${voiceVoice === v ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
+                    {v}
+                  </button>
                 ))}
               </div>
             </div>
@@ -646,17 +658,20 @@ export default function AIPage() {
 
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">{voiceMode === 'tts' ? 'Text to speak' : 'Describe the music'}</p>
-            <textarea value={voiceText} onChange={(e) => setVoiceText(e.target.value)} placeholder={voiceMode === 'tts' ? 'Type what you want to hear...' : 'A chill lo-fi beat with piano and rain sounds...'} rows={3} className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none" style={{ backgroundColor: 'var(--vs-card)' }} />
+            <textarea value={voiceText} onChange={(e) => setVoiceText(e.target.value)}
+              placeholder={voiceMode === 'tts' ? 'Type what you want to hear...' : 'A chill lo-fi beat with piano and rain...'} rows={3}
+              className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none" style={{ backgroundColor: 'var(--vs-card)' }} />
           </div>
 
-          <button onClick={handleVoiceGenerate} disabled={voiceLoading || !voiceText.trim()} className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2" style={{ opacity: voiceLoading || !voiceText.trim() ? 0.5 : 1 }}>
+          <button onClick={handleVoiceGenerate} disabled={voiceLoading || !voiceText.trim()}
+            className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2"
+            style={{ opacity: voiceLoading || !voiceText.trim() ? 0.5 : 1 }}>
             {voiceLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating audio...</>) : (<><Play size={16} /> Generate</>)}
           </button>
 
           {voiceError && (
             <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4">
-              <p className="text-xl mb-1">💀</p>
-              <p className="text-xs vs-text-sub">{voiceError}</p>
+              <p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{voiceError}</p>
             </div>
           )}
 
@@ -664,7 +679,8 @@ export default function AIPage() {
             <div className="vs-card border vs-border rounded-2xl p-4 mb-4">
               <p className="text-xs font-semibold vs-text mb-3">{voiceMode === 'tts' ? 'Your Audio' : 'Your Music'}</p>
               <audio controls src={voiceResult} className="w-full" />
-              <a href={voiceResult} download={`viralscope-${voiceMode}-${Date.now()}.mp3`} className="vs-btn-outline w-full py-2 rounded-xl text-xs font-semibold mt-3 gap-1 flex items-center justify-center">
+              <a href={voiceResult} download={`viralscope-${voiceMode}-${Date.now()}.mp3`}
+                className="vs-btn-outline w-full py-2 rounded-xl text-xs font-semibold mt-3 gap-1 flex items-center justify-center">
                 <Download size={14} /> Download
               </a>
             </div>
@@ -686,17 +702,20 @@ export default function AIPage() {
 
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Prompt</p>
-            <textarea value={videoPrompt} onChange={(e) => setVideoPrompt(e.target.value)} placeholder="A drone shot flying over a neon cyberpunk city at night..." rows={3} className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none" style={{ backgroundColor: 'var(--vs-card)' }} />
+            <textarea value={videoPrompt} onChange={(e) => setVideoPrompt(e.target.value)}
+              placeholder="A drone shot flying over a neon cyberpunk city..." rows={3}
+              className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none" style={{ backgroundColor: 'var(--vs-card)' }} />
           </div>
 
-          <button onClick={handleVideoGenerate} disabled={videoLoading || !videoPrompt.trim()} className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2" style={{ opacity: videoLoading || !videoPrompt.trim() ? 0.5 : 1 }}>
+          <button onClick={handleVideoGenerate} disabled={videoLoading || !videoPrompt.trim()}
+            className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2"
+            style={{ opacity: videoLoading || !videoPrompt.trim() ? 0.5 : 1 }}>
             {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> This might take a while...</>) : (<><Film size={16} /> Generate Video</>)}
           </button>
 
           {videoError && (
             <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4">
-              <p className="text-xl mb-1">💀</p>
-              <p className="text-xs vs-text-sub">{videoError}</p>
+              <p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{videoError}</p>
             </div>
           )}
 
@@ -704,7 +723,8 @@ export default function AIPage() {
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-4">
               <video controls src={videoResult} className="w-full" />
               <div className="p-3">
-                <a href={videoResult} download={`viralscope-video-${Date.now()}.mp4`} className="vs-btn w-full py-2 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center">
+                <a href={videoResult} download={`viralscope-video-${Date.now()}.mp4`}
+                  className="vs-btn w-full py-2 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center">
                   <Download size={14} /> Download
                 </a>
               </div>
@@ -720,55 +740,30 @@ export default function AIPage() {
             <div className="text-center mb-4">
               <p className="text-4xl mb-2">{keyReason === 'quota' ? '😭' : '🔑'}</p>
               <h3 className="text-lg font-bold vs-text mb-1">
-                {keyReason === 'quota' ? 'Free vibes ran out bestie' :
-                 keyReason === 'flux2_limit' ? 'FLUX.2 Dev limit hit' :
-                 'Drop your key bestie'}
+                {keyReason === 'quota' ? 'Free vibes ran out bestie' : keyReason === 'flux2_limit' ? 'FLUX.2 Dev limit hit' : 'Drop your key bestie'}
               </h3>
               <p className="text-xs vs-text-sub leading-relaxed">
-                {keyReason === 'quota'
-                  ? "Your daily free pollen is depleted. Add your own key to keep creating, or come back tomorrow for a fresh batch."
-                  : keyReason === 'flux2_limit'
-                  ? "You've used your 2 free FLUX.2 Dev generations today. Add your key for unlimited access, or try Flux/Z-Image instead."
-                  : "This feature needs your own API key. It takes like 30 seconds to get one — worth it, trust."
-                }
+                {keyReason === 'quota' ? "Your daily free pollen is depleted. Add your own key to keep creating, or come back tomorrow for a fresh batch."
+                  : keyReason === 'flux2_limit' ? "You've used your 2 free FLUX.2 Dev generations today. Add your key for unlimited, or try Flux/Z-Image."
+                  : "This feature needs your own API key. It takes like 30 seconds to get one — worth it, trust."}
               </p>
             </div>
-
             <div className="mb-4">
-              <input
-                type="text"
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="Paste your API key here..."
-                className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none"
-                style={{ backgroundColor: 'var(--vs-bg)' }}
-              />
+              <input type="text" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} placeholder="Paste your API key here..."
+                className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none" style={{ backgroundColor: 'var(--vs-bg)' }} />
             </div>
-
-            <button
-              onClick={handleKeySave}
-              disabled={!keyInput.trim()}
-              className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3"
-              style={{ opacity: keyInput.trim() ? 1 : 0.5 }}
-            >
+            <button onClick={handleKeySave} disabled={!keyInput.trim()}
+              className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3" style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>
               Save Key
             </button>
-
             <div className="text-center">
               <p className="text-[10px] vs-text-sub mb-2">Don&apos;t have a key yet?</p>
-              <a
-                href="https://enter.pollinations.ai/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1"
-              >
+              <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer"
+                className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">
                 Get one at Pollinations <ExternalLink size={12} />
               </a>
             </div>
-
-            <button onClick={() => { setShowKeyPopup(false); setPendingAction(null) }} className="w-full text-center text-[10px] vs-text-sub hover:underline mt-4">
-              Maybe later
-            </button>
+            <button onClick={() => { setShowKeyPopup(false); setPendingAction(null) }} className="w-full text-center text-[10px] vs-text-sub hover:underline mt-4">Maybe later</button>
           </div>
         </div>
       )}
