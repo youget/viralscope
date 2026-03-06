@@ -13,12 +13,6 @@ const popupData = {
     title: "IG? Not yet fam.",
     desc: "Meta said 'talk to my lawyer.' So yeah... we're working on it. Somewhere between never and eventually.",
   },
-  'api-key': {
-    emoji: '🔑',
-    title: "API Key needed.",
-    desc: "This feature requires a Pollinations API key. Get yours at pollinations.ai — it's worth it bestie.",
-    link: 'https://pollinations.ai',
-  },
 }
 
 const subMenus = {
@@ -28,14 +22,12 @@ const subMenus = {
     { label: 'Instagram', icon: '◉', popup: 'instagram' },
   ],
   ai: [
-    { label: 'Chat', icon: '💬', href: '/ai' },
-    { label: 'Image', icon: '🖼️', href: '/ai' },
-    { label: 'Voice', icon: '🎤', popup: 'api-key' },
-    { label: 'Video', icon: '🎬', popup: 'api-key' },
+    { label: 'Chat', icon: '💬', href: '/ai?tab=chat' },
+    { label: 'Image', icon: '🖼️', href: '/ai?tab=image' },
   ],
   favorites: [
-    { label: 'Videos', icon: '▶', href: '/favorites' },
-    { label: 'AI Stuff', icon: '⚡', href: '/favorites' },
+    { label: 'Videos', icon: '▶', href: '/favorites?tab=videos' },
+    { label: 'AI Stuff', icon: '⚡', href: '/favorites?tab=ai' },
   ],
 }
 
@@ -79,10 +71,7 @@ export default function BottomNav() {
             className="absolute bottom-[68px] left-0 right-0 vs-card border-t vs-border rounded-t-2xl p-4 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className="w-10 h-1 rounded-full mx-auto mb-4"
-              style={{ backgroundColor: 'var(--vs-border)' }}
-            />
+            <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ backgroundColor: 'var(--vs-border)' }} />
             <div className="grid grid-cols-3 gap-2 max-w-sm mx-auto">
               {subMenus[activeMenu]?.map((sub, i) => (
                 <button
@@ -100,35 +89,12 @@ export default function BottomNav() {
       )}
 
       {popup && popupData[popup] && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6"
-          onClick={() => setPopup(null)}
-        >
-          <div
-            className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setPopup(null)}>
+          <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={(e) => e.stopPropagation()}>
             <p className="text-4xl mb-3">{popupData[popup].emoji}</p>
             <h3 className="text-lg font-bold vs-text mb-2">{popupData[popup].title}</h3>
             <p className="text-sm vs-text-sub mb-5 leading-relaxed">{popupData[popup].desc}</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPopup(null)}
-                className="flex-1 vs-btn px-6 py-2.5 rounded-xl text-sm font-semibold"
-              >
-                Got it
-              </button>
-              {popupData[popup].link && (
-                <a
-                  href={popupData[popup].link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 vs-btn-outline px-4 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-1"
-                >
-                  Get Key <ExternalLink size={14} />
-                </a>
-              )}
-            </div>
+            <button onClick={() => setPopup(null)} className="vs-btn px-6 py-2.5 rounded-xl text-sm font-semibold">Got it</button>
           </div>
         </div>
       )}
