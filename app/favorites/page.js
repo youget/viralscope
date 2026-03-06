@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Trash2, Play, X, Share2, Image, Download, ExternalLink } from 'lucide-react'
+import { Trash2, Play, X, Share2, Download, ExternalLink, Sparkles } from 'lucide-react'
 
 const FAV_VIDEO_KEY = 'vs-fav-videos'
 const FAV_AI_KEY = 'vs-fav-ai'
@@ -65,17 +65,14 @@ export default function FavoritesPage() {
     if (navigator.share) {
       try { await navigator.share({ title: video.title, url }) } catch {}
     } else {
-      try {
-        await navigator.clipboard.writeText(url)
-        alert('Link copied!')
-      } catch {}
+      try { await navigator.clipboard.writeText(url); alert('Link copied!') } catch {}
     }
   }
 
   function handleDownloadAI(item) {
     const a = document.createElement('a')
     a.href = item.url
-    a.download = `viralscope-${Date.now()}.png`
+    a.download = `viralscope-${item.seed || Date.now()}.png`
     a.click()
   }
 
@@ -91,58 +88,53 @@ export default function FavoritesPage() {
         all the good stuff you saved
       </p>
 
+      {/* Tabs */}
       <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setTab('videos')}
+        <button onClick={() => setTab('videos')}
           className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2"
-          style={{
-            backgroundColor: tab === 'videos' ? 'var(--vs-accent)' : 'var(--vs-card)',
-            color: tab === 'videos' ? '#fff' : 'var(--vs-text-sub)',
-            border: `1px solid ${tab === 'videos' ? 'var(--vs-accent)' : 'var(--vs-border)'}`,
-          }}
-        >
+          style={{ backgroundColor: tab === 'videos' ? 'var(--vs-accent)' : 'var(--vs-card)', color: tab === 'videos' ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${tab === 'videos' ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
           <Play size={14} /> Videos ({favVideos.length})
         </button>
-        <button
-          onClick={() => setTab('ai')}
+        <button onClick={() => setTab('ai')}
           className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2"
-          style={{
-            backgroundColor: tab === 'ai' ? 'var(--vs-accent)' : 'var(--vs-card)',
-            color: tab === 'ai' ? '#fff' : 'var(--vs-text-sub)',
-            border: `1px solid ${tab === 'ai' ? 'var(--vs-accent)' : 'var(--vs-border)'}`,
-          }}
-        >
-          <Image size={14} /> AI Stuff ({favAI.length})
+          style={{ backgroundColor: tab === 'ai' ? 'var(--vs-accent)' : 'var(--vs-card)', color: tab === 'ai' ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${tab === 'ai' ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
+          <Sparkles size={14} /> AI Stuff ({favAI.length})
         </button>
       </div>
 
+      {/* Clear All */}
       {!isEmpty && (
-        <button
-          onClick={clearAll}
-          className="flex items-center gap-1 text-xs vs-text-sub mb-4 hover:underline mx-auto"
-          style={{ display: 'flex' }}
-        >
+        <button onClick={clearAll}
+          className="flex items-center gap-1 text-xs vs-text-sub mb-4 hover:underline mx-auto" style={{ display: 'flex' }}>
           <Trash2 size={12} /> Clear all {tab}
         </button>
       )}
 
+      {/* Empty State */}
       {isEmpty && (
         <div className="text-center py-20">
           <p className="text-3xl mb-3">{tab === 'videos' ? '📭' : '🎨'}</p>
           <p className="text-sm font-semibold vs-text mb-1">
             {tab === 'videos' ? 'No saved videos yet' : 'No AI creations yet'}
           </p>
-          <p className="text-xs vs-text-sub">
+          <p className="text-xs vs-text-sub mb-2">
             {tab === 'videos'
               ? 'Go watch some videos and hit that heart button!'
-              : 'Generate some AI images and they\'ll show up here!'}
+              : 'All your AI generated images auto-save here!'}
           </p>
-          <a
-            href={tab === 'videos' ? '/videos' : '/ai?tab=image'}
-            className="vs-btn px-5 py-2 rounded-xl text-xs font-semibold mt-4 inline-flex"
-          >
+          <a href={tab === 'videos' ? '/videos' : '/ai?tab=image'}
+            className="vs-btn px-5 py-2 rounded-xl text-xs font-semibold mt-4 inline-flex">
             {tab === 'videos' ? 'Browse Videos' : 'Try AI Generator'}
           </a>
+        </div>
+      )}
+
+      {/* AI Info Banner */}
+      {tab === 'ai' && favAI.length > 0 && (
+        <div className="vs-card border vs-border rounded-xl p-3 mb-4 text-center">
+          <p className="text-[10px] vs-text-sub">
+            Images auto-save here when generated. Click <strong>Edit</strong> to remix with a new seed.
+          </p>
         </div>
       )}
 
@@ -188,15 +180,13 @@ export default function FavoritesPage() {
                 <div className="p-2.5">
                   <p className="text-xs vs-text-sub leading-snug line-clamp-2">{item.prompt}</p>
                   <p className="text-[10px] vs-text-sub mt-1">
-                    {item.model} • {item.size} {item.seed ? `• Seed: ${item.seed}` : ''}
+                    {item.model} • {item.size} {item.seed ? `• #${item.seed}` : ''}
                   </p>
                 </div>
               </button>
               <div className="flex border-t vs-border">
-                <a
-                  href={`/ai?tab=image&prompt=${encodeURIComponent(item.prompt)}`}
-                  className="flex-1 py-2 flex items-center justify-center text-xs font-semibold vs-text-sub vs-hover gap-1"
-                >
+                <a href={`/ai?tab=image&prompt=${encodeURIComponent(item.prompt)}`}
+                  className="flex-1 py-2 flex items-center justify-center text-xs font-semibold vs-text-sub vs-hover gap-1">
                   Edit
                 </a>
                 <button onClick={() => handleDownloadAI(item)} className="flex-1 py-2 flex items-center justify-center vs-text-sub vs-hover">
@@ -228,16 +218,13 @@ export default function FavoritesPage() {
             <p className="text-xs text-gray-400 mb-4">{activeVideo.channel}</p>
             <div className="flex items-center justify-center gap-4">
               <button onClick={() => handleShare(activeVideo)} className="flex flex-col items-center gap-1 px-4 py-2" style={{ color: 'var(--vs-accent)' }}>
-                <Share2 size={22} />
-                <span className="text-[10px] text-gray-400">Share</span>
+                <Share2 size={22} /><span className="text-[10px] text-gray-400">Share</span>
               </button>
               <button onClick={() => setActiveVideo(null)} className="flex flex-col items-center gap-1 px-6 py-2 rounded-xl bg-white/10">
-                <X size={22} className="text-white" />
-                <span className="text-[10px] text-gray-400">Close</span>
+                <X size={22} className="text-white" /><span className="text-[10px] text-gray-400">Close</span>
               </button>
               <button onClick={() => { removeVideo(activeVideo.id); setActiveVideo(null) }} className="flex flex-col items-center gap-1 px-4 py-2" style={{ color: 'var(--vs-accent)' }}>
-                <Trash2 size={22} />
-                <span className="text-[10px] text-gray-400">Remove</span>
+                <Trash2 size={22} /><span className="text-[10px] text-gray-400">Remove</span>
               </button>
             </div>
           </div>
@@ -253,10 +240,12 @@ export default function FavoritesPage() {
             {viewImage.model} • {viewImage.size} {viewImage.seed ? `• Seed: ${viewImage.seed}` : ''}
           </p>
           <div className="flex gap-3 mt-4">
-            <a href={`/ai?tab=image&prompt=${encodeURIComponent(viewImage.prompt)}`} className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">
+            <a href={`/ai?tab=image&prompt=${encodeURIComponent(viewImage.prompt)}`}
+              className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">
               Edit Prompt
             </a>
-            <button onClick={() => { const a = document.createElement('a'); a.href = viewImage.url; a.download = `viralscope-${Date.now()}.png`; a.click() }} className="vs-btn px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">
+            <button onClick={() => handleDownloadAI(viewImage)}
+              className="vs-btn px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">
               <Download size={14} /> Download
             </button>
           </div>
