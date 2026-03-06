@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Heart, Trash2, Play, X, Share2, Image } from 'lucide-react'
+import { Trash2, Play, X, Share2, Image, Download, ExternalLink } from 'lucide-react'
 
 const FAV_VIDEO_KEY = 'vs-fav-videos'
 const FAV_AI_KEY = 'vs-fav-ai'
@@ -31,6 +31,11 @@ export default function FavoritesPage() {
       setFavVideos(JSON.parse(localStorage.getItem(FAV_VIDEO_KEY) || '[]'))
       setFavAI(JSON.parse(localStorage.getItem(FAV_AI_KEY) || '[]'))
     } catch {}
+
+    const params = new URLSearchParams(window.location.search)
+    const t = params.get('tab')
+    if (t === 'ai') setTab('ai')
+    if (t === 'videos') setTab('videos')
   }, [])
 
   function removeVideo(id) {
@@ -65,6 +70,13 @@ export default function FavoritesPage() {
         alert('Link copied!')
       } catch {}
     }
+  }
+
+  function handleDownloadAI(item) {
+    const a = document.createElement('a')
+    a.href = item.url
+    a.download = `viralscope-${Date.now()}.png`
+    a.click()
   }
 
   const currentList = tab === 'videos' ? favVideos : favAI
@@ -126,7 +138,7 @@ export default function FavoritesPage() {
               : 'Generate some AI images and they\'ll show up here!'}
           </p>
           <a
-            href={tab === 'videos' ? '/videos' : '/ai'}
+            href={tab === 'videos' ? '/videos' : '/ai?tab=image'}
             className="vs-btn px-5 py-2 rounded-xl text-xs font-semibold mt-4 inline-flex"
           >
             {tab === 'videos' ? 'Browse Videos' : 'Try AI Generator'}
@@ -134,49 +146,28 @@ export default function FavoritesPage() {
         </div>
       )}
 
+      {/* VIDEO FAVORITES */}
       {tab === 'videos' && favVideos.length > 0 && (
         <div className="grid grid-cols-2 gap-3">
           {favVideos.map((v) => (
-            <div
-              key={v.id}
-              className="vs-card border vs-border rounded-xl overflow-hidden"
-            >
-              <button
-                onClick={() => setActiveVideo(v)}
-                className="w-full text-left"
-              >
+            <div key={v.id} className="vs-card border vs-border rounded-xl overflow-hidden">
+              <button onClick={() => setActiveVideo(v)} className="w-full text-left">
                 <div className="relative aspect-video">
-                  <img
-                    src={v.thumbnail}
-                    alt={v.title}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
+                  <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover" loading="lazy" />
                   <span className="absolute bottom-1 right-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/80 text-white">
                     {formatDuration(v.durationSec)}
                   </span>
                 </div>
                 <div className="p-2.5">
-                  <p className="text-xs font-semibold vs-text leading-snug line-clamp-2">
-                    {v.title}
-                  </p>
-                  <p className="text-[10px] vs-text-sub mt-1">
-                    {v.channel} • {formatViews(v.views)} views
-                  </p>
+                  <p className="text-xs font-semibold vs-text leading-snug line-clamp-2">{v.title}</p>
+                  <p className="text-[10px] vs-text-sub mt-1">{v.channel} • {formatViews(v.views)} views</p>
                 </div>
               </button>
               <div className="flex border-t vs-border">
-                <button
-                  onClick={() => handleShare(v)}
-                  className="flex-1 py-2 flex items-center justify-center vs-text-sub vs-hover"
-                >
+                <button onClick={() => handleShare(v)} className="flex-1 py-2 flex items-center justify-center vs-text-sub vs-hover">
                   <Share2 size={14} />
                 </button>
-                <button
-                  onClick={() => removeVideo(v.id)}
-                  className="flex-1 py-2 flex items-center justify-center vs-hover"
-                  style={{ color: 'var(--vs-accent)' }}
-                >
+                <button onClick={() => removeVideo(v.id)} className="flex-1 py-2 flex items-center justify-center vs-hover" style={{ color: 'var(--vs-accent)' }}>
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -185,43 +176,33 @@ export default function FavoritesPage() {
         </div>
       )}
 
+      {/* AI FAVORITES */}
       {tab === 'ai' && favAI.length > 0 && (
         <div className="grid grid-cols-2 gap-3">
           {favAI.map((item, i) => (
-            <div
-              key={i}
-              className="vs-card border vs-border rounded-xl overflow-hidden"
-            >
-              <button
-                onClick={() => setViewImage(item)}
-                className="w-full"
-              >
+            <div key={i} className="vs-card border vs-border rounded-xl overflow-hidden">
+              <button onClick={() => setViewImage(item)} className="w-full">
                 <div className="aspect-square">
-                  <img
-                    src={item.url}
-                    alt={item.prompt}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
+                  <img src={item.url} alt={item.prompt} className="w-full h-full object-cover" loading="lazy" />
                 </div>
                 <div className="p-2.5">
-                  <p className="text-xs vs-text-sub leading-snug line-clamp-2">
-                    {item.prompt}
+                  <p className="text-xs vs-text-sub leading-snug line-clamp-2">{item.prompt}</p>
+                  <p className="text-[10px] vs-text-sub mt-1">
+                    {item.model} • {item.size} {item.seed ? `• Seed: ${item.seed}` : ''}
                   </p>
                 </div>
               </button>
               <div className="flex border-t vs-border">
                 <a
-                  href={`/ai?prompt=${encodeURIComponent(item.prompt)}`}
-                  className="flex-1 py-2 flex items-center justify-center text-xs font-semibold vs-text-sub vs-hover"
+                  href={`/ai?tab=image&prompt=${encodeURIComponent(item.prompt)}`}
+                  className="flex-1 py-2 flex items-center justify-center text-xs font-semibold vs-text-sub vs-hover gap-1"
                 >
                   Edit
                 </a>
-                <button
-                  onClick={() => removeAI(i)}
-                  className="flex-1 py-2 flex items-center justify-center vs-hover"
-                  style={{ color: 'var(--vs-accent)' }}
-                >
+                <button onClick={() => handleDownloadAI(item)} className="flex-1 py-2 flex items-center justify-center vs-text-sub vs-hover">
+                  <Download size={14} />
+                </button>
+                <button onClick={() => removeAI(i)} className="flex-1 py-2 flex items-center justify-center vs-hover" style={{ color: 'var(--vs-accent)' }}>
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -230,6 +211,7 @@ export default function FavoritesPage() {
         </div>
       )}
 
+      {/* VIDEO PLAYER */}
       {activeVideo && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col">
           <div className="flex-1 flex items-center justify-center">
@@ -253,7 +235,7 @@ export default function FavoritesPage() {
                 <X size={22} className="text-white" />
                 <span className="text-[10px] text-gray-400">Close</span>
               </button>
-              <button onClick={() => removeVideo(activeVideo.id)} className="flex flex-col items-center gap-1 px-4 py-2" style={{ color: 'var(--vs-accent)' }}>
+              <button onClick={() => { removeVideo(activeVideo.id); setActiveVideo(null) }} className="flex flex-col items-center gap-1 px-4 py-2" style={{ color: 'var(--vs-accent)' }}>
                 <Trash2 size={22} />
                 <span className="text-[10px] text-gray-400">Remove</span>
               </button>
@@ -262,13 +244,23 @@ export default function FavoritesPage() {
         </div>
       )}
 
+      {/* IMAGE VIEWER */}
       {viewImage && (
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4" onClick={() => setViewImage(null)}>
-          <img src={viewImage.url} alt={viewImage.prompt} className="max-w-full max-h-[70vh] rounded-xl" onClick={(e) => e.stopPropagation()} />
+          <img src={viewImage.url} alt={viewImage.prompt} className="max-w-full max-h-[60vh] rounded-xl" onClick={(e) => e.stopPropagation()} />
           <p className="text-sm text-gray-400 mt-4 text-center max-w-sm">{viewImage.prompt}</p>
-          <button onClick={() => setViewImage(null)} className="mt-4 vs-btn px-6 py-2 rounded-xl text-sm font-semibold">
-            Close
-          </button>
+          <p className="text-[10px] text-gray-500 mt-1">
+            {viewImage.model} • {viewImage.size} {viewImage.seed ? `• Seed: ${viewImage.seed}` : ''}
+          </p>
+          <div className="flex gap-3 mt-4">
+            <a href={`/ai?tab=image&prompt=${encodeURIComponent(viewImage.prompt)}`} className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">
+              Edit Prompt
+            </a>
+            <button onClick={() => { const a = document.createElement('a'); a.href = viewImage.url; a.download = `viralscope-${Date.now()}.png`; a.click() }} className="vs-btn px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">
+              <Download size={14} /> Download
+            </button>
+          </div>
+          <button onClick={() => setViewImage(null)} className="mt-4 text-[10px] text-gray-500 hover:underline">Close</button>
         </div>
       )}
 
