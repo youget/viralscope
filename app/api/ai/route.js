@@ -4,6 +4,7 @@ export async function POST(request) {
   const body = await request.json()
   const { action, messages, prompt, model, width, height, seed, enhance, userKey, voice, duration } = body
 
+  const hasUserKey = !!userKey
   const key = userKey || process.env.POLLI_PK
   if (!key) {
     return Response.json({ error: 'no_key' }, { status: 500 })
@@ -17,22 +18,28 @@ export async function POST(request) {
         method: 'POST',
         headers: { ...auth, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: model || 'qwen-safety',
+          model: model || 'nova-fast',
           messages: messages || [{ role: 'user', content: prompt }],
         }),
       })
       if (!res.ok) return handleErr(res.status)
-      const data = await res.json()
-      return Response.json({ result: data.choices?.[0]?.message?.content || '' })
+      const text = await res.text()
+      try {
+        const data = JSON.parse(text)
+        return Response.json({ result: data.choices?.[0]?.message?.content || '' })
+      } catch {
+        return Response.json({ result: text })
+      }
     }
 
     if (action === 'image') {
       const encoded = encodeURIComponent(prompt)
+      const imgSeed = seed || Math.floor(Math.random() * 999999)
       const params = new URLSearchParams({
-        model: model || 'flux',
+        model: model || 'zimage',
         width: String(width || 1024),
         height: String(height || 1024),
-        seed: String(seed || Math.floor(Math.random() * 999999)),
+        seed: String(imgSeed),
         safe: 'true',
         nologo: 'true',
       })
@@ -41,16 +48,28 @@ export async function POST(request) {
       const res = await fetch(`https://gen.pollinations.ai/image/${encoded}?${params}`, {
         headers: auth,
       })
-      if (!res.ok) return handleErr(res.status)
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        if (res.status === 402) return handleErr(402)
+        if (res.status === 401) return handleErr(401)
+        return Response.json({ error: 'api_error', message: errText || 'Image generation failed' }, { status: res.status })
+      }
+
+      const contentType = res.headers.get('content-type') || ''
+      if (!contentType.includes('image')) {
+        const errText = await res.text().catch(() => 'Not an image response')
+        return Response.json({ error: 'api_error', message: errText }, { status: 500 })
+      }
 
       const buffer = await res.arrayBuffer()
       const base64 = Buffer.from(buffer).toString('base64')
-      const ct = res.headers.get('content-type') || 'image/jpeg'
-      return Response.json({ image: `data:${ct};base64,${base64}` })
+      const ct = contentType || 'image/jpeg'
+      return Response.json({ image: `data:${ct};base64,${base64}`, seed: imgSeed })
     }
 
     if (action === 'audio') {
-      if (!userKey) return Response.json({ error: 'user_key_required' }, { status: 401 })
+      if (!hasUserKey) return Response.json({ error: 'user_key_required' }, { status: 401 })
 
       const encoded = encodeURIComponent(prompt)
       const params = new URLSearchParams({ model: model || 'elevenlabs' })
@@ -68,7 +87,7 @@ export async function POST(request) {
     }
 
     if (action === 'video') {
-      if (!userKey) return Response.json({ error: 'user_key_required' }, { status: 401 })
+      if (!hasUserKey) return Response.json({ error: 'user_key_required' }, { status: 401 })
 
       const encoded = encodeURIComponent(prompt)
       const params = new URLSearchParams({
