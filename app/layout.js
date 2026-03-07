@@ -4,6 +4,17 @@ import TopBar from './components/TopBar'
 import BottomNav from './components/BottomNav'
 import ScrollToTop from './components/ScrollToTop'
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: '#0B1121' },
+    { media: '(prefers-color-scheme: light)', color: '#FFF5F7' },
+  ],
+}
+
 export const metadata = {
   title: 'ViralScope',
   description: 'Your brain called. It wants dopamine. Viral videos + AI tools. Completely free. No cap.',
@@ -29,16 +40,6 @@ export const metadata = {
     statusBarStyle: 'black-translucent',
     title: 'ViralScope',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
-  themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#0B1121' },
-    { media: '(prefers-color-scheme: light)', color: '#FFF5F7' },
-  ],
 }
 
 export default function RootLayout({ children }) {
