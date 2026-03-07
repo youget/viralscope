@@ -8,16 +8,29 @@ export async function POST(request) {
   const key = userKey || process.env.POLLI_PK
   
   if (!key) {
-    return Response.json({ error: 'no_key', message: 'No API key found. Check POLLI_PK env var.' }, { status: 500 })
+    return Response.json({ error: 'no_key', message: 'No API key found.' }, { status: 500 })
   }
 
   const auth = { 'Authorization': `Bearer ${key}` }
 
   try {
     if (action === 'chat') {
+      let chatMessages = messages || [{ role: 'user', content: prompt }]
+      
+      // API requires first message to be from user, not assistant
+      // Remove leading assistant messages (our greeting)
+      while (chatMessages.length > 0 && chatMessages[0].role === 'assistant') {
+        chatMessages = chatMessages.slice(1)
+      }
+
+      // If no user messages left, return early
+      if (chatMessages.length === 0) {
+        return Response.json({ result: "Yo send me a message first! I can't talk to myself... well I can, but that's weird." })
+      }
+
       const chatBody = {
         model: model || 'nova-fast',
-        messages: messages || [{ role: 'user', content: prompt }],
+        messages: chatMessages,
       }
 
       const res = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
@@ -68,7 +81,6 @@ export async function POST(request) {
       const contentType = res.headers.get('content-type') || ''
       if (!contentType.includes('image')) {
         const errText = await res.text().catch(() => 'Not an image response')
-        console.log('Image wrong content-type:', contentType, errText)
         return Response.json({ error: 'api_error', message: 'Response was not an image. Try again.' }, { status: 500 })
       }
 
