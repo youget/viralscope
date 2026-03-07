@@ -6,29 +6,39 @@ export async function POST(request) {
 
   const hasUserKey = !!userKey
   const key = userKey || process.env.POLLI_PK
+  
   if (!key) {
-    return Response.json({ error: 'no_key' }, { status: 500 })
+    return Response.json({ error: 'no_key', message: 'No API key found. Check POLLI_PK env var.' }, { status: 500 })
   }
 
   const auth = { 'Authorization': `Bearer ${key}` }
 
   try {
     if (action === 'chat') {
+      const chatBody = {
+        model: model || 'nova-fast',
+        messages: messages || [{ role: 'user', content: prompt }],
+      }
+
       const res = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
         method: 'POST',
         headers: { ...auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: model || 'nova-fast',
-          messages: messages || [{ role: 'user', content: prompt }],
-        }),
+        body: JSON.stringify(chatBody),
       })
-      if (!res.ok) return handleErr(res.status)
-      const text = await res.text()
+
+      const rawText = await res.text()
+
+      if (!res.ok) {
+        console.log('Chat API error:', res.status, rawText)
+        return handleErr(res.status, rawText)
+      }
+
       try {
-        const data = JSON.parse(text)
-        return Response.json({ result: data.choices?.[0]?.message?.content || '' })
+        const data = JSON.parse(rawText)
+        const content = data.choices?.[0]?.message?.content || ''
+        return Response.json({ result: content })
       } catch {
-        return Response.json({ result: text })
+        return Response.json({ result: rawText })
       }
     }
 
@@ -51,15 +61,15 @@ export async function POST(request) {
 
       if (!res.ok) {
         const errText = await res.text().catch(() => '')
-        if (res.status === 402) return handleErr(402)
-        if (res.status === 401) return handleErr(401)
-        return Response.json({ error: 'api_error', message: errText || 'Image generation failed' }, { status: res.status })
+        console.log('Image API error:', res.status, errText)
+        return handleErr(res.status, errText)
       }
 
       const contentType = res.headers.get('content-type') || ''
       if (!contentType.includes('image')) {
         const errText = await res.text().catch(() => 'Not an image response')
-        return Response.json({ error: 'api_error', message: errText }, { status: 500 })
+        console.log('Image wrong content-type:', contentType, errText)
+        return Response.json({ error: 'api_error', message: 'Response was not an image. Try again.' }, { status: 500 })
       }
 
       const buffer = await res.arrayBuffer()
@@ -79,7 +89,11 @@ export async function POST(request) {
       const res = await fetch(`https://gen.pollinations.ai/audio/${encoded}?${params}`, {
         headers: { 'Authorization': `Bearer ${userKey}` },
       })
-      if (!res.ok) return handleErr(res.status)
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        return handleErr(res.status, errText)
+      }
 
       const buffer = await res.arrayBuffer()
       const base64 = Buffer.from(buffer).toString('base64')
@@ -98,7 +112,11 @@ export async function POST(request) {
       const res = await fetch(`https://gen.pollinations.ai/image/${encoded}?${params}`, {
         headers: { 'Authorization': `Bearer ${userKey}` },
       })
-      if (!res.ok) return handleErr(res.status)
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        return handleErr(res.status, errText)
+      }
 
       const buffer = await res.arrayBuffer()
       const base64 = Buffer.from(buffer).toString('base64')
@@ -107,13 +125,14 @@ export async function POST(request) {
 
     return Response.json({ error: 'invalid_action' }, { status: 400 })
   } catch (error) {
+    console.log('Server error:', error.message)
     return Response.json({ error: 'server_error', message: error.message }, { status: 500 })
   }
 }
 
-function handleErr(status) {
-  if (status === 402) return Response.json({ error: 'quota_exceeded' }, { status: 402 })
-  if (status === 401) return Response.json({ error: 'invalid_key' }, { status: 401 })
-  if (status === 403) return Response.json({ error: 'forbidden' }, { status: 403 })
-  return Response.json({ error: 'api_error' }, { status })
+function handleErr(status, detail) {
+  if (status === 402) return Response.json({ error: 'quota_exceeded', message: detail }, { status: 402 })
+  if (status === 401) return Response.json({ error: 'invalid_key', message: detail }, { status: 401 })
+  if (status === 403) return Response.json({ error: 'forbidden', message: detail }, { status: 403 })
+  return Response.json({ error: 'api_error', message: detail || 'Unknown error' }, { status })
 }
