@@ -13,6 +13,11 @@ const popupData = {
     title: "IG? Not yet fam.",
     desc: "Meta said 'talk to my lawyer.' So yeah... we're working on it. Somewhere between never and eventually.",
   },
+  game: {
+    emoji: '🎮',
+    title: "Games? In THIS economy?",
+    desc: "We're still figuring out how to make games without breaking the internet. Check back when we've leveled up. Currently stuck on the tutorial.",
+  },
 }
 
 const subMenus = {
@@ -24,6 +29,7 @@ const subMenus = {
   ai: [
     { label: 'Chat', icon: '💬', href: '/ai?tab=chat' },
     { label: 'Image', icon: '🖼️', href: '/ai?tab=image' },
+    { label: 'Game', icon: '🎮', popup: 'game' },
   ],
   favorites: [
     { label: 'Videos', icon: '▶', href: '/favorites?tab=videos' },
