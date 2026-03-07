@@ -6,16 +6,19 @@ const FAV_AI_KEY = 'vs-fav-ai'
 const RECENT_KEY = 'vs-recent-ai'
 const USER_KEY_STORAGE = 'vs-user-polli-key'
 const FLUX2_KEY = 'vs-flux2dev-usage'
+const CHAT_HISTORY_KEY = 'vs-chat-history'
+const CHAT_MODEL_KEY = 'vs-chat-model'
+
+const DEFAULT_MSG = { role: 'assistant', content: "Yo what's good! Pick a mode and ask me anything — I'm only slightly unhinged." }
 
 const CHAT_MODELS = [
   { id: 'nova-fast', label: 'Safe Mode', tag: '🛡️', desc: 'Fast & reliable', free: true },
-  { id: 'qwen-character', label: 'Unhinged Mode', tag: '🔥', desc: 'Creative & roleplay', free: true },
   { id: 'gemini-fast', label: 'Pro Mode', tag: '🔑', desc: 'Vision, search, code', free: false },
 ]
 
 const ALL_IMG_MODELS = [
-  { id: 'flux', label: 'Flux Schnell', desc: '4.8K imgs', type: 'free' },
   { id: 'zimage', label: 'Z-Image Turbo', desc: '4.3K imgs', type: 'free' },
+  { id: 'flux', label: 'Flux Schnell', desc: '4.8K imgs', type: 'free' },
   { id: 'flux-2-dev', label: 'FLUX.2 Dev', desc: '2/day free', type: 'limited' },
   { id: 'imagen-4', label: 'Imagen 4', desc: '400 imgs', type: 'byop' },
   { id: 'grok-imagine', label: 'Grok Imagine', desc: '400 imgs', type: 'byop' },
@@ -76,6 +79,10 @@ function addFavAI(item) { const l = getFavAI(); l.unshift(item); localStorage.se
 function getUserKey() { try { return localStorage.getItem(USER_KEY_STORAGE) || '' } catch { return '' } }
 function saveUserKey(k) { localStorage.setItem(USER_KEY_STORAGE, k) }
 function clearUserKey() { localStorage.removeItem(USER_KEY_STORAGE) }
+function getChatHistory() { try { return JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || 'null') } catch { return null } }
+function saveChatHistory(msgs) { try { localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(msgs)) } catch {} }
+function getSavedChatModel() { try { return localStorage.getItem(CHAT_MODEL_KEY) || 'nova-fast' } catch { return 'nova-fast' } }
+function saveChatModel(m) { localStorage.setItem(CHAT_MODEL_KEY, m) }
 function getFlux2Usage() {
   try {
     const d = JSON.parse(localStorage.getItem(FLUX2_KEY) || '{}')
@@ -101,15 +108,13 @@ export default function AIPage() {
 
   const [chatModel, setChatModel] = useState('nova-fast')
   const [showModelPicker, setShowModelPicker] = useState(false)
-  const [chatMessages, setChatMessages] = useState([
-    { role: 'assistant', content: "Yo what's good! Pick a mode above and ask me anything — I'm only slightly unhinged." }
-  ])
+  const [chatMessages, setChatMessages] = useState([DEFAULT_MSG])
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const chatEndRef = useRef(null)
 
   const [imgPrompt, setImgPrompt] = useState('')
-  const [imgModel, setImgModel] = useState('flux')
+  const [imgModel, setImgModel] = useState('zimage')
   const [showImgModelPicker, setShowImgModelPicker] = useState(false)
   const [imgSize, setImgSize] = useState(0)
   const [imgLoading, setImgLoading] = useState(false)
@@ -138,6 +143,12 @@ export default function AIPage() {
     setRecent(getRecent())
     setUserKey(getUserKey())
     fetchBalance()
+
+    const savedHistory = getChatHistory()
+    if (savedHistory && savedHistory.length > 0) setChatMessages(savedHistory)
+    const savedModel = getSavedChatModel()
+    if (savedModel) setChatModel(savedModel)
+
     const params = new URLSearchParams(window.location.search)
     const t = params.get('tab')
     if (t && ['chat', 'image', 'voice', 'video'].includes(t)) setTab(t)
@@ -146,6 +157,9 @@ export default function AIPage() {
   }, [])
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMessages])
+
+  useEffect(() => { saveChatHistory(chatMessages) }, [chatMessages])
+  useEffect(() => { saveChatModel(chatModel) }, [chatModel])
 
   async function fetchBalance() {
     try {
@@ -174,9 +188,10 @@ export default function AIPage() {
     setShowKeyPopup(false)
     if (pendingAction) pendingAction(keyInput.trim())
     setPendingAction(null)
+    fetchBalance()
   }
 
-  function handleKeyClear() { clearUserKey(); setUserKey('') }
+  function handleKeyClear() { clearUserKey(); setUserKey(''); fetchBalance() }
 
   function handleApiError(err) {
     if (err === 'quota_exceeded') { setKeyReason('quota'); setShowKeyPopup(true); return }
@@ -211,8 +226,9 @@ export default function AIPage() {
   async function handleChat(e) {
     e.preventDefault()
     if (!chatInput.trim() || chatLoading) return
-    if (!currentChatModel.free) {
-      if (!hasKey()) { requireKey('pro_chat', (k) => doChat(chatInput.trim(), k)); return }
+    if (!currentChatModel.free && !hasKey()) {
+      requireKey('pro_chat', (k) => doChat(chatInput.trim(), k))
+      return
     }
     doChat(chatInput.trim(), getUserKey())
   }
@@ -224,6 +240,7 @@ export default function AIPage() {
     setChatInput('')
     setChatLoading(true)
     try {
+      const useUserKey = hasKey()
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -231,7 +248,7 @@ export default function AIPage() {
           action: 'chat',
           messages: newMsgs,
           model: chatModel,
-          userKey: !currentChatModel.free ? uKey : undefined,
+          userKey: useUserKey ? getUserKey() : undefined,
         }),
       })
       const data = await res.json()
@@ -242,6 +259,11 @@ export default function AIPage() {
     }
     setChatLoading(false)
     fetchBalance()
+  }
+
+  function handleClearChat() {
+    setChatMessages([DEFAULT_MSG])
+    saveChatHistory([DEFAULT_MSG])
   }
 
   function selectImgModel(m) {
@@ -281,7 +303,7 @@ export default function AIPage() {
     const size = SIZES[imgSize]
     const seed = overrideSeed || Math.floor(Math.random() * 999999)
     try {
-      const isBYOP = currentImgModel.type === 'byop'
+      const useUserKey = hasKey()
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -293,12 +315,13 @@ export default function AIPage() {
           height: size.h,
           seed,
           enhance: enhance || undefined,
-          userKey: isBYOP ? uKey : undefined,
+          userKey: useUserKey ? getUserKey() : undefined,
         }),
       })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setImgLoading(false); return }
-      const result = { url: data.image, prompt: imgPrompt, model: imgModel, size: size.label, seed }
+      const actualSeed = data.seed || seed
+      const result = { url: data.image, prompt: imgPrompt, model: imgModel, size: size.label, seed: actualSeed }
       setImgResult(result)
       const newRecent = addRecent(result)
       setRecent(newRecent)
@@ -338,28 +361,17 @@ export default function AIPage() {
   }
 
   async function doVoice(k) {
-    setVoiceLoading(true)
-    setVoiceError(null)
-    setVoiceResult(null)
+    setVoiceLoading(true); setVoiceError(null); setVoiceResult(null)
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'audio',
-          prompt: voiceText.trim(),
-          model: voiceMode === 'tts' ? 'elevenlabs' : 'elevenmusic',
-          voice: voiceMode === 'tts' ? voiceVoice : undefined,
-          duration: voiceMode === 'music' ? voiceDuration : undefined,
-          userKey: k,
-        }),
+        body: JSON.stringify({ action: 'audio', prompt: voiceText.trim(), model: voiceMode === 'tts' ? 'elevenlabs' : 'elevenmusic', voice: voiceMode === 'tts' ? voiceVoice : undefined, duration: voiceMode === 'music' ? voiceDuration : undefined, userKey: k }),
       })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setVoiceLoading(false); return }
       setVoiceResult(data.audio)
-    } catch {
-      setVoiceError('Generation failed. Try again?')
-    }
+    } catch { setVoiceError('Generation failed. Try again?') }
     setVoiceLoading(false)
   }
 
@@ -371,27 +383,17 @@ export default function AIPage() {
   }
 
   async function doVideo(k) {
-    setVideoLoading(true)
-    setVideoError(null)
-    setVideoResult(null)
+    setVideoLoading(true); setVideoError(null); setVideoResult(null)
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'video',
-          prompt: videoPrompt.trim(),
-          model: 'grok-video',
-          duration: videoDuration,
-          userKey: k,
-        }),
+        body: JSON.stringify({ action: 'video', prompt: videoPrompt.trim(), model: 'grok-video', duration: videoDuration, userKey: k }),
       })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setVideoLoading(false); return }
       setVideoResult(data.video)
-    } catch {
-      setVideoError('Generation failed. Try again?')
-    }
+    } catch { setVideoError('Generation failed. Try again?') }
     setVideoLoading(false)
   }
 
@@ -407,25 +409,18 @@ export default function AIPage() {
       <h1 className="text-2xl font-black vs-text text-center mb-1">
         AI <span className="vs-gradient-text">Playground</span>
       </h1>
-      <p className="text-xs vs-text-sub text-center mb-3">
-        create unhinged stuff with artificial brainpower
-      </p>
+      <p className="text-xs vs-text-sub text-center mb-3">create unhinged stuff with artificial brainpower</p>
 
       {/* Balance + Key */}
       <div className="flex items-center justify-center gap-2 mb-5 flex-wrap">
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
           <Sparkles size={10} style={{ color: 'var(--vs-accent)' }} />
           {balance !== null ? (
-            <span className="vs-text-sub">
-              {balance > 0 ? `${balance.toFixed(3)} pollen left` : 'Pollen depleted'}
-            </span>
-          ) : (
-            <span className="vs-text-sub">Loading...</span>
-          )}
+            <span className="vs-text-sub">{balance > 0 ? `${balance.toFixed(3)} pollen left` : 'Pollen depleted'}</span>
+          ) : (<span className="vs-text-sub">Loading...</span>)}
           {balance !== null && balance <= 0 && (
             <button onClick={() => { setKeyReason('quota'); setShowKeyPopup(true) }}
-              className="ml-1 px-2 py-0.5 rounded text-[9px] font-bold text-white"
-              style={{ backgroundColor: 'var(--vs-accent)' }}>Add Key</button>
+              className="ml-1 px-2 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: 'var(--vs-accent)' }}>Add Key</button>
           )}
         </div>
         {userKey && (
@@ -481,7 +476,7 @@ export default function AIPage() {
             )}
           </div>
 
-          <button onClick={() => setChatMessages([{ role: 'assistant', content: "Fresh start! What's on your mind?" }])} className="text-[10px] vs-text-sub hover:underline mb-2 self-end">Clear chat</button>
+          <button onClick={handleClearChat} className="text-[10px] vs-text-sub hover:underline mb-2 self-end">Clear chat</button>
 
           <div className="flex-1 overflow-y-auto flex flex-col gap-3 mb-4 pr-1">
             {chatMessages.map((msg, i) => (
@@ -510,7 +505,6 @@ export default function AIPage() {
       {/* ===== IMAGE ===== */}
       {tab === 'image' && (
         <div>
-          {/* Model Dropdown */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Model</p>
             <button onClick={() => setShowImgModelPicker(!showImgModelPicker)}
@@ -537,7 +531,6 @@ export default function AIPage() {
             {!hasKey() && <p className="text-[10px] vs-text-sub mt-1.5">✨ Free • ⚡ Limited daily • 🔑 Needs key</p>}
           </div>
 
-          {/* Size */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Size</p>
             <div className="flex gap-2">
@@ -551,7 +544,6 @@ export default function AIPage() {
             </div>
           </div>
 
-          {/* Prompt */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Prompt</p>
             <textarea value={imgPrompt} onChange={(e) => setImgPrompt(e.target.value)} placeholder="Describe what you want to see..." rows={3}
@@ -568,21 +560,18 @@ export default function AIPage() {
             </div>
           </div>
 
-          {/* Generate */}
           <button onClick={() => handleGenerate()} disabled={imgLoading || !imgPrompt.trim()}
             className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2"
             style={{ opacity: imgLoading || !imgPrompt.trim() ? 0.5 : 1 }}>
             {imgLoading ? (<><Loader2 size={16} className="animate-spin" /> {loadingMsg}</>) : (<><Sparkles size={16} /> Generate</>)}
           </button>
 
-          {/* Error */}
           {imgError && (
             <div className="vs-card border vs-border rounded-xl p-4 text-center mb-6">
               <p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{imgError}</p>
             </div>
           )}
 
-          {/* Result */}
           {imgResult && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-6">
               <img src={imgResult.url} alt={imgResult.prompt} className="w-full" />
@@ -597,7 +586,6 @@ export default function AIPage() {
             </div>
           )}
 
-          {/* Recent */}
           {recent.length > 0 && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-3">
@@ -744,7 +732,7 @@ export default function AIPage() {
               </h3>
               <p className="text-xs vs-text-sub leading-relaxed">
                 {keyReason === 'quota' ? "Your daily free pollen is depleted. Add your own key to keep creating, or come back tomorrow for a fresh batch."
-                  : keyReason === 'flux2_limit' ? "You've used your 2 free FLUX.2 Dev generations today. Add your key for unlimited, or try Flux/Z-Image."
+                  : keyReason === 'flux2_limit' ? "You've used your 2 free FLUX.2 Dev generations today. Add your key for unlimited, or try Z-Image."
                   : "This feature needs your own API key. It takes like 30 seconds to get one — worth it, trust."}
               </p>
             </div>
@@ -753,9 +741,7 @@ export default function AIPage() {
                 className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none" style={{ backgroundColor: 'var(--vs-bg)' }} />
             </div>
             <button onClick={handleKeySave} disabled={!keyInput.trim()}
-              className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3" style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>
-              Save Key
-            </button>
+              className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3" style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>Save Key</button>
             <div className="text-center">
               <p className="text-[10px] vs-text-sub mb-2">Don&apos;t have a key yet?</p>
               <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer"
