@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Send, MessageSquare, Mic, Film, Sparkles, Shuffle, Download, Loader2, ChevronDown, ExternalLink, Key, RefreshCw, Play, Music, X, ImageIcon } from 'lucide-react'
+import { Send, MessageSquare, Mic, Film, Sparkles, Shuffle, Download, Loader2, ChevronDown, ExternalLink, Key, RefreshCw, Play, Music, X } from 'lucide-react'
 
 const FAV_AI_KEY = 'vs-fav-ai'
 const RECENT_KEY = 'vs-recent-ai'
@@ -70,7 +70,6 @@ const ERR = {
   server_error: { emoji: '💤', title: "The AI took a nap", desc: "Something went wrong on our end. Give it another shot in a sec." },
   forbidden: { emoji: '🚫', title: "Access denied", desc: "The bouncer said no. Your key might not have access to this model." },
   api_error: { emoji: '🫣', title: "Something went sideways", desc: "Give it another shot. If it keeps happening, the AI might be having a bad day." },
-  img_failed: { emoji: '🖼️', title: "Image didn't load", desc: "The image generation might have failed or timed out. Try again or switch to a different model." },
 }
 
 function getRecent() { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch { return [] } }
@@ -97,24 +96,6 @@ function addFlux2Usage() {
 }
 function randomLoadingMsg() { return LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)] }
 
-function getPolliKey() {
-  return getUserKey() || process.env.NEXT_PUBLIC_POLLI_PK || ''
-}
-
-function buildImageUrl(prompt, model, width, height, seed, enhanceFlag) {
-  const encoded = encodeURIComponent(prompt)
-  const params = new URLSearchParams({
-    model: model || 'zimage',
-    width: String(width || 1024),
-    height: String(height || 1024),
-    seed: String(seed),
-    safe: 'true',
-    nologo: 'true',
-  })
-  if (enhanceFlag) params.set('enhance', 'true')
-  return `https://gen.pollinations.ai/image/${encoded}?${params}`
-}
-
 export default function AIPage() {
   const [tab, setTab] = useState('chat')
   const [balance, setBalance] = useState(null)
@@ -139,7 +120,7 @@ export default function AIPage() {
   const [imgLoading, setImgLoading] = useState(false)
   const [imgResult, setImgResult] = useState(null)
   const [imgError, setImgError] = useState(null)
-  const [enhanceOn, setEnhanceOn] = useState(false)
+  const [enhance, setEnhance] = useState(false)
   const [recent, setRecent] = useState([])
 
   const [voiceMode, setVoiceMode] = useState('tts')
@@ -176,6 +157,7 @@ export default function AIPage() {
   }, [])
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMessages])
+
   useEffect(() => { saveChatHistory(chatMessages) }, [chatMessages])
   useEffect(() => { saveChatModel(chatModel) }, [chatModel])
 
@@ -241,7 +223,6 @@ export default function AIPage() {
     return m.tag
   }
 
-  // ===== CHAT =====
   async function handleChat(e) {
     e.preventDefault()
     if (!chatInput.trim() || chatLoading) return
@@ -252,13 +233,14 @@ export default function AIPage() {
     doChat(chatInput.trim(), getUserKey())
   }
 
-  async function doChat(text) {
+  async function doChat(text, uKey) {
     const userMsg = { role: 'user', content: text }
     const newMsgs = [...chatMessages, userMsg]
     setChatMessages(newMsgs)
     setChatInput('')
     setChatLoading(true)
     try {
+      const useUserKey = hasKey()
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -266,7 +248,7 @@ export default function AIPage() {
           action: 'chat',
           messages: newMsgs,
           model: chatModel,
-          userKey: hasKey() ? getUserKey() : undefined,
+          userKey: useUserKey ? getUserKey() : undefined,
         }),
       })
       const data = await res.json()
@@ -284,7 +266,6 @@ export default function AIPage() {
     saveChatHistory([DEFAULT_MSG])
   }
 
-  // ===== IMAGE =====
   function selectImgModel(m) {
     if (m.type === 'byop' && !hasKey()) {
       requireKey('byop_image', () => { setImgModel(m.id); setShowImgModelPicker(false) })
@@ -299,59 +280,48 @@ export default function AIPage() {
 
     const isBYOP = currentImgModel.type === 'byop'
     if (isBYOP && !hasKey()) {
-      requireKey('byop_image', () => doGenerate(overrideSeed))
+      requireKey('byop_image', (k) => doGenerate(k, overrideSeed))
       return
     }
 
     if (imgModel === 'flux-2-dev' && !hasKey()) {
       const usage = getFlux2Usage()
       if (usage.count >= 2) {
-        requireKey('flux2_limit', () => doGenerate(overrideSeed))
+        requireKey('flux2_limit', (k) => doGenerate(k, overrideSeed))
         return
       }
     }
 
-    doGenerate(overrideSeed)
+    doGenerate(getUserKey(), overrideSeed)
   }
 
-  async function doGenerate(overrideSeed) {
+  async function doGenerate(uKey, overrideSeed) {
     setImgLoading(true)
     setImgError(null)
     setImgResult(null)
     setLoadingMsg(randomLoadingMsg())
-
     const size = SIZES[imgSize]
     const seed = overrideSeed || Math.floor(Math.random() * 999999)
-    const polliKey = getPolliKey()
-
-    if (!polliKey) {
-      setImgLoading(false)
-      requireKey('no_key', () => doGenerate(overrideSeed))
-      return
-    }
-
-    const imageUrl = buildImageUrl(imgPrompt.trim(), imgModel, size.w, size.h, seed, enhanceOn)
-
     try {
-      const res = await fetch(imageUrl, {
-        headers: { 'Authorization': `Bearer ${polliKey}` },
+      const useUserKey = hasKey()
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'image',
+          prompt: imgPrompt.trim(),
+          model: imgModel,
+          width: size.w,
+          height: size.h,
+          seed,
+          enhance: enhance || undefined,
+          userKey: useUserKey ? getUserKey() : undefined,
+        }),
       })
-
-      if (!res.ok) {
-        if (res.status === 402) { handleApiError('quota_exceeded'); setImgLoading(false); return }
-        if (res.status === 401) { handleApiError('invalid_key'); setImgLoading(false); return }
-        throw new Error('Generation failed')
-      }
-
-      const contentType = res.headers.get('content-type') || ''
-      if (!contentType.includes('image')) {
-        throw new Error('Response was not an image')
-      }
-
-      const blob = await res.blob()
-      const blobUrl = URL.createObjectURL(blob)
-
-      const result = { url: blobUrl, prompt: imgPrompt, model: imgModel, size: size.label, seed }
+      const data = await res.json()
+      if (data.error) { handleApiError(data.error); setImgLoading(false); return }
+      const actualSeed = data.seed || seed
+      const result = { url: data.image, prompt: imgPrompt, model: imgModel, size: size.label, seed: actualSeed }
       setImgResult(result)
       const newRecent = addRecent(result)
       setRecent(newRecent)
@@ -383,7 +353,6 @@ export default function AIPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // ===== VOICE =====
   async function handleVoiceGenerate() {
     if (!voiceText.trim() || voiceLoading) return
     const k = getUserKey()
@@ -406,7 +375,6 @@ export default function AIPage() {
     setVoiceLoading(false)
   }
 
-  // ===== VIDEO =====
   async function handleVideoGenerate() {
     if (!videoPrompt.trim() || videoLoading) return
     const k = getUserKey()
@@ -431,7 +399,7 @@ export default function AIPage() {
 
   const tabs = [
     { id: 'chat', label: 'Chat', icon: MessageSquare },
-    { id: 'image', label: 'Image', icon: ImageIcon },
+    { id: 'image', label: 'Image', icon: Sparkles },
     { id: 'voice', label: 'Voice', icon: Mic },
     { id: 'video', label: 'Video', icon: Film },
   ]
@@ -443,6 +411,7 @@ export default function AIPage() {
       </h1>
       <p className="text-xs vs-text-sub text-center mb-3">create unhinged stuff with artificial brainpower</p>
 
+      {/* Balance + Key */}
       <div className="flex items-center justify-center gap-2 mb-5 flex-wrap">
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
           <Sparkles size={10} style={{ color: 'var(--vs-accent)' }} />
@@ -463,6 +432,7 @@ export default function AIPage() {
         )}
       </div>
 
+      {/* Tabs */}
       <div className="flex gap-1 mb-6 vs-card border vs-border rounded-xl p-1">
         {tabs.map((t) => {
           const Icon = t.icon
@@ -476,6 +446,7 @@ export default function AIPage() {
         })}
       </div>
 
+      {/* ===== CHAT ===== */}
       {tab === 'chat' && (
         <div className="flex flex-col" style={{ height: 'calc(100vh - 340px)' }}>
           <div className="mb-3">
@@ -531,6 +502,7 @@ export default function AIPage() {
         </div>
       )}
 
+      {/* ===== IMAGE ===== */}
       {tab === 'image' && (
         <div>
           <div className="mb-4">
@@ -582,7 +554,7 @@ export default function AIPage() {
                 <Shuffle size={12} /> Random
               </button>
               <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub cursor-pointer">
-                <input type="checkbox" checked={enhanceOn} onChange={(e) => setEnhanceOn(e.target.checked)} className="w-3.5 h-3.5 rounded" />
+                <input type="checkbox" checked={enhance} onChange={(e) => setEnhance(e.target.checked)} className="w-3.5 h-3.5 rounded" />
                 <Sparkles size={12} /> Enhance
               </label>
             </div>
@@ -634,6 +606,7 @@ export default function AIPage() {
         </div>
       )}
 
+      {/* ===== VOICE ===== */}
       {tab === 'voice' && (
         <div>
           <div className="flex gap-2 mb-5">
@@ -703,6 +676,7 @@ export default function AIPage() {
         </div>
       )}
 
+      {/* ===== VIDEO ===== */}
       {tab === 'video' && (
         <div>
           <div className="vs-card border vs-border rounded-xl p-3 mb-4 text-center">
@@ -747,6 +721,7 @@ export default function AIPage() {
         </div>
       )}
 
+      {/* ===== KEY POPUP ===== */}
       {showKeyPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => { setShowKeyPopup(false); setPendingAction(null) }}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full border vs-border" onClick={(e) => e.stopPropagation()}>
@@ -756,7 +731,7 @@ export default function AIPage() {
                 {keyReason === 'quota' ? 'Free vibes ran out bestie' : keyReason === 'flux2_limit' ? 'FLUX.2 Dev limit hit' : 'Drop your key bestie'}
               </h3>
               <p className="text-xs vs-text-sub leading-relaxed">
-                {keyReason === 'quota' ? "Your daily free pollen is depleted. Add your own key to keep creating, or come back tomorrow."
+                {keyReason === 'quota' ? "Your daily free pollen is depleted. Add your own key to keep creating, or come back tomorrow for a fresh batch."
                   : keyReason === 'flux2_limit' ? "You've used your 2 free FLUX.2 Dev generations today. Add your key for unlimited, or try Z-Image."
                   : "This feature needs your own API key. It takes like 30 seconds to get one — worth it, trust."}
               </p>
@@ -779,6 +754,7 @@ export default function AIPage() {
         </div>
       )}
 
+      {/* ===== ERROR POPUP ===== */}
       {errorPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setErrorPopup(null)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={(e) => e.stopPropagation()}>
