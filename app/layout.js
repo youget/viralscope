@@ -3,6 +3,7 @@ import ThemeProvider from './components/ThemeProvider'
 import TopBar from './components/TopBar'
 import BottomNav from './components/BottomNav'
 import ScrollToTop from './components/ScrollToTop'
+import ToastContainer from './components/Toast'
 
 export const viewport = {
   width: 'device-width',
@@ -58,6 +59,7 @@ export default function RootLayout({ children }) {
           <main>{children}</main>
           <ScrollToTop />
           <BottomNav />
+          <ToastContainer />
         </ThemeProvider>
       </body>
     </html>
