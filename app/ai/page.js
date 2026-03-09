@@ -114,7 +114,7 @@ export default function AIPage() {
   const chatEndRef = useRef(null)
 
   const [imgPrompt, setImgPrompt] = useState('')
-  const [imgModel, setImgModel] = useState('zimage')
+  const [imgModel, setImgModel] = useState('flux')
   const [showImgModelPicker, setShowImgModelPicker] = useState(false)
   const [imgSize, setImgSize] = useState(0)
   const [imgLoading, setImgLoading] = useState(false)
