@@ -1,6 +1,6 @@
 {
-  "name": "ViralScope",
-  "short_name": "ViralScope",
+  "name": "ViralScape",
+  "short_name": "ViralScape",
   "description": "Your brain called. It wants dopamine. Viral videos + AI tools.",
   "start_url": "/",
   "display": "standalone",
