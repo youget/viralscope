@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 
 export const metadata = {
-  title: '404 | ViralScope',
+  title: '404 | ViralScape',
 }
 
 export default function NotFound() {
