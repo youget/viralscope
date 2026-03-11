@@ -1,13 +1,21 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Send, MessageSquare, Mic, Film, Sparkles, Shuffle, Download, Loader2, ChevronDown, ExternalLink, Key, RefreshCw, Play, Music, ImageIcon, Paperclip, X } from 'lucide-react'
+import { 
+  Send, MessageSquare, Mic, Film, Sparkles, Shuffle, Download, 
+  Loader2, ChevronDown, ExternalLink, Key, RefreshCw, Play, Music, 
+  ImageIcon, Paperclip, X, Heart 
+} from 'lucide-react'
 import { toast } from '../components/Toast'
-import { saveImage, getRecentImages, compressImage } from '../lib/imagedb'
+import { 
+  saveImage, getRecentImages, compressImage, compressImageToSize, 
+  getImageCount 
+} from '../lib/imagedb'
 
 const USER_KEY_STORAGE = 'vs-user-polli-key'
 const FLUX2_KEY = 'vs-flux2dev-usage'
 const CHAT_HISTORY_KEY = 'vs-chat-history'
 const CHAT_MODEL_KEY = 'vs-chat-model'
+const FAV_AI_KEY = 'vs-fav-ai' // kunci untuk localStorage favorit
 
 const DEFAULT_MSG = { role: 'assistant', content: "Yo what's good! Pick a mode and ask me anything — I'm only slightly unhinged." }
 
@@ -187,6 +195,7 @@ export default function AIPage() {
 
   const [errorPopup, setErrorPopup] = useState(null)
 
+  // ===== LOAD INITIAL DATA =====
   useEffect(() => {
     loadRecent()
     setUserKey(getUserKey())
@@ -358,18 +367,49 @@ export default function AIPage() {
 
       const blob = await res.blob()
       const blobUrl = URL.createObjectURL(blob)
-      const thumb = await compressImage(blobUrl, 100)
 
-      const result = { url: blobUrl, prompt: imgPrompt, model: imgModel, size: size.label, seed, style: imgStyle }
+      const thumb = await compressImage(blobUrl, 100)
+      const medium = await compressImageToSize(blobUrl, 512)
+
+      const result = {
+        url: blobUrl,
+        medium: medium,
+        prompt: imgPrompt,
+        model: imgModel,
+        size: size.label,
+        seed,
+        style: imgStyle
+      }
       setImgResult(result)
 
-      await saveImage({ prompt: imgPrompt, model: imgModel, size: size.label, seed, thumbnail: thumb, style: imgStyle })
-      await loadRecent()
-      toast('Saved to favorites!', '/favorites?tab=ai')
+      await saveImage({
+        prompt: imgPrompt,
+        model: imgModel,
+        size: size.label,
+        seed,
+        thumbnail: thumb,
+        medium: medium,
+        style: imgStyle
+      })
+
+      const count = await getImageCount()
+      if (count >= 50) {
+        setErrorPopup({
+          emoji: '⚠️',
+          title: 'Favorites almost full',
+          desc: `You have ${count} images saved. Consider deleting some old ones from Favorites to make room.`
+        })
+      }
+
+      await loadRecent() 
+      toast('Image generated!', null) 
 
       if (imgModel === 'flux-2-dev') addFlux2Usage()
-    } catch (err) { setImgError(err.message) }
-    setImgLoading(false); fetchBalance()
+    } catch (err) {
+      setImgError(err.message)
+    }
+    setImgLoading(false)
+    fetchBalance()
   }
 
   function handleRegenerate() { if (imgResult) handleGenerate(imgResult.seed) }
@@ -379,10 +419,57 @@ export default function AIPage() {
     const a = document.createElement('a'); a.href = imgResult.url; a.download = `viralscape-${Date.now()}.png`; a.click()
   }
 
+  function saveToFavorites() {
+    if (!imgResult) return
+
+    const { prompt, model, size, seed, style, medium, url } = imgResult
+    const imageUrl = medium || url 
+
+    if (!imageUrl) {
+      toast('No image to save')
+      return
+    }
+
+    let favorites = []
+    try {
+      const saved = localStorage.getItem(FAV_AI_KEY)
+      if (saved) favorites = JSON.parse(saved)
+    } catch (e) {
+      console.error('Failed to parse favorites', e)
+    }
+
+    const newItem = {
+      prompt,
+      model,
+      size,
+      seed,
+      style: style || 'none',
+      url: imageUrl,
+      timestamp: Date.now()
+    }
+
+    favorites.push(newItem)
+    try {
+      localStorage.setItem(FAV_AI_KEY, JSON.stringify(favorites))
+      toast('Saved to favorites!', '/favorites?tab=ai')
+    } catch (e) {
+      toast('Failed to save. LocalStorage might be full.')
+    }
+  }
+
   function handleClickRecent(item) {
     setImgPrompt(item.prompt)
     if (item.style) setImgStyle(item.style)
-    setImgResult({ url: item.thumbnail, prompt: item.prompt, model: item.model, size: item.size, seed: item.seed, style: item.style, isThumb: true })
+    const imgUrl = item.medium || item.thumbnail
+    setImgResult({
+      url: imgUrl,
+      prompt: item.prompt,
+      model: item.model,
+      size: item.size,
+      seed: item.seed,
+      style: item.style,
+      isThumb: !item.medium 
+    })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -618,13 +705,17 @@ export default function AIPage() {
           {imgResult && !imgLoading && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-6">
               <img src={imgResult.url} alt={imgResult.prompt} className="w-full" />
-              {imgResult.isThumb && <p className="text-[10px] text-center vs-text-sub py-1">Thumbnail preview — hit Regenerate for full size</p>}
+              {imgResult.isThumb && <p className="text-[10px] text-center vs-text-sub py-1">Preview (thumbnail) — click Regenerate for full size</p>}
               <div className="p-4">
                 <p className="text-xs vs-text-sub mb-2 leading-relaxed">{imgResult.prompt}</p>
                 <p className="text-[10px] vs-text-sub mb-3">Model: {imgResult.model} • Size: {imgResult.size} • Seed: {imgResult.seed}{imgResult.style && imgResult.style !== 'none' ? ` • Style: ${imgResult.style}` : ''}</p>
                 <div className="flex gap-2">
                   <button onClick={handleDownload} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-semibold gap-1"><Download size={14} /> Download</button>
                   <button onClick={handleRegenerate} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1"><RefreshCw size={14} /> Regenerate</button>
+                  {/* Tombol Save ke Favorites */}
+                  <button onClick={saveToFavorites} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1" style={{ borderColor: 'var(--vs-accent)', color: 'var(--vs-accent)' }}>
+                    <Heart size={14} /> Save
+                  </button>
                 </div>
               </div>
             </div>
@@ -649,7 +740,7 @@ export default function AIPage() {
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] vs-text-sub mt-2">Click to preview. Auto-saved in <a href="/favorites?tab=ai" className="underline">Favorites</a>.</p>
+              <p className="text-[10px] vs-text-sub mt-2">Click to preview. Use <Heart size={10} className="inline" /> button to save permanently.</p>
             </div>
           )}
         </div>
