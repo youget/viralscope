@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Home, Play, Bot, Star, ExternalLink } from 'lucide-react'
-
+import { Home, Play, Bot, Star, ExternalLink, Gamepad2 } from 'lucide-react'
 const popupData = {
   tiktok: {
     emoji: '🚧',
@@ -42,6 +41,7 @@ const navItems = [
   { icon: Play, label: 'Videos', menu: 'videos' },
   { icon: Bot, label: 'AI', menu: 'ai' },
   { icon: Star, label: 'Favs', menu: 'favorites' },
+  { icon: Gamepad2, label: 'Game', href: '/game' }
   { icon: ExternalLink, label: 'Pollin', href: 'https://enter.pollinations.ai', external: true },
 ]
 
