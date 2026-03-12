@@ -9,7 +9,6 @@ export default function GamePage() {
   const [clickPower, setClickPower] = useState(1)
   const [autoClicker, setAutoClicker] = useState(false)
 
-  // Load data dari localStorage saat pertama buka
   useEffect(() => {
     const saved = localStorage.getItem(GAME_STORAGE_KEY)
     if (saved) {
@@ -20,7 +19,6 @@ export default function GamePage() {
     }
   }, [])
 
-  // Simpan setiap kali ada perubahan
   useEffect(() => {
     localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify({ score, clickPower, autoClicker }))
   }, [score, clickPower, autoClicker])
@@ -54,7 +52,7 @@ export default function GamePage() {
   }
 
   const resetGame = () => {
-    if (confirm('Reset game? Semua kemajuan akan hilang.')) {
+    if (confirm('Reset? Poof! All your dopamine gains vanish. For real.')) {
       setScore(0)
       setClickPower(1)
       setAutoClicker(false)
@@ -67,7 +65,7 @@ export default function GamePage() {
       <h1 className="text-2xl font-black vs-text mb-1">
         Dopamine <span className="vs-gradient-text">Miner</span>
       </h1>
-      <p className="text-xs vs-text-sub mb-6">klik-klik buat nambah dopamine</p>
+      <p className="text-xs vs-text-sub mb-6">tap tap — stack that dopamine</p>
 
       {/* Score display */}
       <div className="vs-card border vs-border rounded-2xl p-8 mb-6">
@@ -77,7 +75,6 @@ export default function GamePage() {
         <div className="text-xs vs-text-sub">$DOPAMINE</div>
       </div>
 
-      {/* Tombol klik utama */}
       <button
         onClick={handleClick}
         className="vs-btn w-40 h-40 rounded-full text-2xl font-bold mb-8 mx-auto flex items-center justify-center shadow-lg"
@@ -95,7 +92,7 @@ export default function GamePage() {
         >
           <p className="text-xs font-semibold vs-text">Click Power</p>
           <p className="text-lg font-bold vs-accent">+{clickPower}</p>
-          <p className="text-[10px] vs-text-sub">Harga: {10 * clickPower} $DOPE</p>
+          <p className="text-[10px] vs-text-sub">Price: {10 * clickPower} $DOPE</p>
         </button>
 
         <button
@@ -104,12 +101,11 @@ export default function GamePage() {
           disabled={autoClicker || score < 50}
         >
           <p className="text-xs font-semibold vs-text">Auto-Clicker</p>
-          <p className="text-lg font-bold vs-accent">{autoClicker ? '✅ Aktif' : '🔒'}</p>
-          <p className="text-[10px] vs-text-sub">Harga: 50 $DOPE</p>
+          <p className="text-lg font-bold vs-accent">{autoClicker ? '✅ Active' : '🔒'}</p>
+          <p className="text-[10px] vs-text-sub">Price: 50 $DOPE</p>
         </button>
       </div>
 
-      {/* Tombol reset */}
       <button
         onClick={resetGame}
         className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1"
@@ -117,9 +113,8 @@ export default function GamePage() {
         <RotateCcw size={14} /> Reset Game
       </button>
 
-      {/* Catatan kecil */}
       <p className="text-[10px] vs-text-sub mt-8">
-        ⚡ nanti $DOPAMINE ini bisa ditukar jadi token beneran
+        psst... soon you can flex these $DOPAMINE as real tokens
       </p>
     </div>
   )
