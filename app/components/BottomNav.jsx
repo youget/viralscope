@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Home, Play, Bot, Star, ExternalLink, Gamepad2 } from 'lucide-react'
+
 const popupData = {
   tiktok: {
     emoji: '🚧',
