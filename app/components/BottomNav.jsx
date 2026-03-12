@@ -35,6 +35,11 @@ const subMenus = {
     { label: 'Videos', icon: '▶', href: '/favorites?tab=videos' },
     { label: 'AI Stuff', icon: '⚡', href: '/favorites?tab=ai' },
   ],
+  game: [
+    { label: 'Rabbit', icon: '🐇', popup: 'game' },
+    { label: 'Dopamine', icon: '🧠', href: '/game' },
+    { label: 'Mystery', icon: '❓', popup: 'game' },
+  ],
 }
 
 const navItems = [
@@ -42,7 +47,7 @@ const navItems = [
   { icon: Play, label: 'Videos', menu: 'videos' },
   { icon: Bot, label: 'AI', menu: 'ai' },
   { icon: Star, label: 'Favs', menu: 'favorites' },
-  { icon: Gamepad2, label: 'Game', href: '/game' },
+  { icon: Gamepad2, label: 'Game', menu: 'game' },
   { icon: ExternalLink, label: 'Pollin', href: 'https://enter.pollinations.ai', external: true },
 ]
 
