@@ -14,6 +14,7 @@ export default function GamePage() {
   const [autoClickerCount, setAutoClickerCount] = useState(0)
   const [token, setToken] = useState(0)
   const [inventory, setInventory] = useState({ food: 0, toy: 0, medicine: 0 })
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem(GAME_STORAGE_KEY)
@@ -176,8 +177,25 @@ export default function GamePage() {
 
       {/* Reset button */}
       <button
-        onClick={() => {
-          if (confirm('Reset? Poof! All your dopamine gains vanish. For real.')) {
+  onClick={() => setShowResetConfirm(true)}
+  className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1"
+>
+  <RotateCcw size={14} /> Reset Game
+</button>
+
+{/* Reset popup */}
+{showResetConfirm && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowResetConfirm(false)}>
+    <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={(e) => e.stopPropagation()}>
+      <p className="text-4xl mb-3">🧹</p>
+      <h3 className="text-lg font-bold vs-text mb-2">Reset? fr fr?</h3>
+      <p className="text-sm vs-text-sub mb-5 leading-relaxed">
+        All your dopamine gains, tokens, and progress will vanish. 
+        Like, poof. Gone. For real.
+      </p>
+      <div className="flex gap-3">
+        <button
+          onClick={() => {
             setScore(0)
             setClickPower(1)
             setAutoClickerActive(false)
@@ -186,14 +204,24 @@ export default function GamePage() {
             setToken(0)
             setInventory({ food: 0, toy: 0, medicine: 0 })
             localStorage.removeItem(GAME_STORAGE_KEY)
-          }
-        }}
-        className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1"
-      >
-        <RotateCcw size={14} /> Reset Game
-      </button>
+            setShowResetConfirm(false)
+          }}
+          className="flex-1 vs-btn py-2.5 rounded-xl text-sm font-semibold"
+        >
+          Yup, reset
+        </button>
+        <button
+          onClick={() => setShowResetConfirm(false)}
+          className="flex-1 vs-btn-outline py-2.5 rounded-xl text-sm font-semibold"
+        >
+          Nah, cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
-      {/* Little text */}
+      {/* Hint */}
       <p className="text-[10px] vs-text-sub mt-8">
         psst... soon you can flex these $DOPAMINE as real tokens
       </p>
