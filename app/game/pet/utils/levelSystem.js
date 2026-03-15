@@ -47,5 +47,5 @@ export const calculateBuyPrice = (fromLevel, toLevel, basePrice = 10000) => {
 }
 
 export const getResetRange = (level) => {
-  return Math.floor((level - 1) / 10) + 1 
+  return Math.floor((level - 1) / 10) + 1
 }
