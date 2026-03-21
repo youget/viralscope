@@ -1,5 +1,5 @@
 'use client'
-import { Gamepad2 } from 'lucide-react'
+import Link from 'next/link'
 
 export default function GameLobby() {
   const games = [
@@ -18,11 +18,11 @@ export default function GameLobby() {
       status: 'live',
     },
     {
-    name: 'Digital Pet',
-    icon: '🐣',
-    desc: 'raise your lil dopamine buddy. feed it or else.',
-    href: '/game/pet',
-    status: 'live',
+      name: 'Digital Pet',
+      icon: '🐣',
+      desc: 'raise your lil dopamine buddy. feed it or else.',
+      href: '/game/pet',
+      status: 'live',
     },
     {
       name: 'Mystery',
@@ -43,24 +43,33 @@ export default function GameLobby() {
       </p>
 
       <div className="grid gap-3">
-        {games.map((g, i) => (
-          <a
-            key={i}
-            href={g.href}
-            className={`vs-card border vs-border rounded-xl p-4 flex items-center gap-3 vs-hover transition-all ${
-              g.status === 'soon' ? 'opacity-50 pointer-events-none' : ''
-            }`}
-          >
-            <span className="text-2xl">{g.icon}</span>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-bold vs-text">{g.name}</p>
-              <p className="text-[10px] vs-text-sub">{g.desc}</p>
-            </div>
-            {g.status === 'soon' && (
+        {games.map((g) =>
+          g.status === 'soon' ? (
+            <div
+              key={g.href}
+              className="vs-card border vs-border rounded-xl p-4 flex items-center gap-3 opacity-50 cursor-not-allowed"
+            >
+              <span className="text-2xl">{g.icon}</span>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-bold vs-text">{g.name}</p>
+                <p className="text-[10px] vs-text-sub">{g.desc}</p>
+              </div>
               <span className="text-[10px] vs-accent font-mono">soon™</span>
-            )}
-          </a>
-        ))}
+            </div>
+          ) : (
+            <Link
+              key={g.href}
+              href={g.href}
+              className="vs-card border vs-border rounded-xl p-4 flex items-center gap-3 vs-hover transition-all"
+            >
+              <span className="text-2xl">{g.icon}</span>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-bold vs-text">{g.name}</p>
+                <p className="text-[10px] vs-text-sub">{g.desc}</p>
+              </div>
+            </Link>
+          )
+        )}
       </div>
 
       <p className="text-[9px] vs-text-sub mt-8">
