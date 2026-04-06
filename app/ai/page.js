@@ -8,6 +8,38 @@ const USER_KEY_STORAGE = 'vs-user-polli-key'
 const FLUX2_KEY = 'vs-flux2dev-usage'
 const CHAT_HISTORY_KEY = 'vs-chat-history'
 const CHAT_MODEL_KEY = 'vs-chat-model'
+const LOCAL_POLLEN_KEY = 'vs-local-pollen'
+const POLLEN_PER_HOUR = 0.05
+const POLLEN_MAX = 1.0
+const POLLEN_COST = 0.1
+
+function getLocalPollen() {
+  try {
+    const raw = localStorage.getItem(LOCAL_POLLEN_KEY)
+    const now = Date.now()
+    if (!raw) {
+      localStorage.setItem(LOCAL_POLLEN_KEY, JSON.stringify({ balance: POLLEN_MAX, lastUpdate: now }))
+      return POLLEN_MAX
+    }
+    const { balance = 0, lastUpdate = now } = JSON.parse(raw)
+    const hoursElapsed = (now - lastUpdate) / 3600000
+    const newBalance = Math.min(POLLEN_MAX, balance + hoursElapsed * POLLEN_PER_HOUR)
+    return parseFloat(newBalance.toFixed(4))
+  } catch { return 0 }
+}
+
+function saveLocalPollen(balance) {
+  try {
+    localStorage.setItem(LOCAL_POLLEN_KEY, JSON.stringify({ balance, lastUpdate: Date.now() }))
+  } catch {}
+}
+
+function deductPollen(amount = POLLEN_COST) {
+  const current = getLocalPollen()
+  const newBal = Math.max(0, current - amount)
+  saveLocalPollen(newBal)
+  return newBal
+}
 
 const DEFAULT_MSG = { role: 'assistant', content: "Yo what's good! Pick a mode and ask me anything — I'm only slightly unhinged." }
 
@@ -72,7 +104,7 @@ const RANDOM_PROMPTS = [
 const LOADING_MSGS = ['Cooking your image...','Teaching the AI to draw...','Summoning pixels from the void...','The AI is having a creative moment...','Generating something potentially cursed...','Asking the AI nicely...','Brewing some digital art...','The hamsters are running the wheel...']
 
 const ERR = {
-  quota_exceeded: { emoji: '😭', title: "Free vibes ran out bestie", desc: "Your daily pollen is gone. Drop your own API key or come back tomorrow." },
+  quota_exceeded: { emoji: '😭', title: "Free pollen habis bestie", desc: "Refills 0.05/jam. Balik lagi nanti atau drop API key sendiri." },
   invalid_key: { emoji: '🫠', title: "That key ain't it chief", desc: "Double check your API key and try again." },
   user_key_required: { emoji: '🎟️', title: "VIP pass needed", desc: "This feature needs your own API key." },
   server_error: { emoji: '💤', title: "The AI took a nap", desc: "Something went wrong. Give it another shot." },
@@ -174,12 +206,33 @@ export default function AIPage() {
     const p = params.get('prompt'); if (p) { setImgPrompt(p); setTab('image') }
   }, [])
 
+  // Refresh local pollen display every 2 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!getUserKey()) fetchBalance()
+    }, 2 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMessages])
   useEffect(() => { saveChatHistory(chatMessages) }, [chatMessages])
   useEffect(() => { saveChatModelStorage(chatModel) }, [chatModel])
 
   async function loadRecent() { setRecent(await getRecentImages(10)) }
-  async function fetchBalance() { try { const r = await fetch('/api/balance'); const d = await r.json(); setBalance(d.balance) } catch { setBalance(null) } }
+
+  function fetchBalance() {
+    try {
+      if (getUserKey()) {
+        // User has own key — show unlimited
+        setBalance(99)
+      } else {
+        const pollen = getLocalPollen()
+        saveLocalPollen(pollen) // update lastUpdate timestamp
+        setBalance(pollen)
+      }
+    } catch { setBalance(null) }
+  }
+
   function hasKey() { return !!getUserKey() }
 
   function requireKey(reason, action) {
@@ -234,6 +287,12 @@ export default function AIPage() {
     if (!imgPrompt.trim() || imgLoading) return
     if (currentImgModel.type === 'byop' && !hasKey()) { requireKey('byop_image', () => doGenerate(overrideSeed)); return }
     if (imgModel === 'flux-2-dev' && !hasKey() && getFlux2Usage().count >= 2) { requireKey('flux2_limit', () => doGenerate(overrideSeed)); return }
+    // Check local pollen for free tier
+    if (!hasKey() && getLocalPollen() < POLLEN_COST) {
+      setKeyReason('quota')
+      setShowKeyPopup(true)
+      return
+    }
     doGenerate(overrideSeed)
   }
 
@@ -258,8 +317,10 @@ export default function AIPage() {
       setImgResult({ url: blobUrl, medium, prompt: imgPrompt, model: imgModel, size: size.label, seed, style: imgStyle, dbId })
       await loadRecent(); toast('Image generated!')
       if (imgModel === 'flux-2-dev') addFlux2Usage()
+      // Deduct local pollen for free tier
+      if (!hasKey()) { deductPollen(); fetchBalance() }
     } catch (err) { setImgError(err.message) }
-    setImgLoading(false); fetchBalance()
+    setImgLoading(false)
   }
 
   async function handleSaveToFav() {
@@ -290,6 +351,11 @@ export default function AIPage() {
 
   const tabs = [{ id: 'chat', label: 'Chat', icon: MessageSquare }, { id: 'image', label: 'Image', icon: ImageIcon }, { id: 'voice', label: 'Voice', icon: Mic }, { id: 'video', label: 'Video', icon: Film }]
 
+  // Calculate minutes until next generation is affordable
+  const minutesUntilNextGen = balance !== null && !hasKey() && balance < POLLEN_COST
+    ? Math.ceil(((POLLEN_COST - balance) / POLLEN_PER_HOUR) * 60)
+    : null
+
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-black vs-text text-center mb-1">AI <span className="vs-gradient-text">Playground</span></h1>
@@ -298,8 +364,22 @@ export default function AIPage() {
       <div className="flex items-center justify-center gap-2 mb-5 flex-wrap">
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
           <Sparkles size={10} style={{ color: 'var(--vs-accent)' }} />
-          {balance !== null ? (<span className="vs-text-sub">{balance > 0 ? `${balance.toFixed(3)} pollen left` : 'Pollen depleted'}</span>) : (<span className="vs-text-sub">Loading...</span>)}
-          {balance !== null && balance <= 0 && (<button onClick={() => { setKeyReason('quota'); setShowKeyPopup(true) }} className="ml-1 px-2 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: 'var(--vs-accent)' }}>Add Key</button>)}
+          {balance !== null ? (
+            hasKey() ? (
+              <span className="vs-text-sub">Key active ✓</span>
+            ) : balance >= POLLEN_COST ? (
+              <span className="vs-text-sub">{balance.toFixed(3)} pollen (+{POLLEN_PER_HOUR}/hr)</span>
+            ) : (
+              <span className="vs-text-sub">
+                {minutesUntilNextGen !== null
+                  ? `Pollen depleted — ${minutesUntilNextGen}m hingga next gen`
+                  : 'Pollen depleted'}
+              </span>
+            )
+          ) : (<span className="vs-text-sub">Loading...</span>)}
+          {balance !== null && !hasKey() && balance < POLLEN_COST && (
+            <button onClick={() => { setKeyReason('quota'); setShowKeyPopup(true) }} className="ml-1 px-2 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: 'var(--vs-accent)' }}>Add Key</button>
+          )}
         </div>
         {userKey && (<div className="flex items-center gap-1 px-2 py-1 rounded-full vs-card border vs-border text-[10px]"><Key size={9} style={{ color: 'var(--vs-accent)' }} /><span className="vs-text-sub">Key active</span><button onClick={handleKeyClear} className="ml-1 vs-text-sub hover:underline text-[9px]">remove</button></div>)}
       </div>
@@ -464,8 +544,8 @@ export default function AIPage() {
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full border vs-border" onClick={e => e.stopPropagation()}>
             <div className="text-center mb-4">
               <p className="text-4xl mb-2">{keyReason === 'quota' ? '😭' : '🔑'}</p>
-              <h3 className="text-lg font-bold vs-text mb-1">{keyReason === 'quota' ? 'Free vibes ran out' : keyReason === 'flux2_limit' ? 'FLUX.2 Dev limit hit' : 'Drop your key bestie'}</h3>
-              <p className="text-xs vs-text-sub leading-relaxed">{keyReason === 'quota' ? "Daily pollen depleted. Add key or come back tomorrow." : keyReason === 'flux2_limit' ? "2 free FLUX.2 Dev used today. Add key or try another model." : "This needs your own API key. 30 seconds to get one."}</p>
+              <h3 className="text-lg font-bold vs-text mb-1">{keyReason === 'quota' ? 'Pollen habis bestie' : keyReason === 'flux2_limit' ? 'FLUX.2 Dev limit hit' : 'Drop your key bestie'}</h3>
+              <p className="text-xs vs-text-sub leading-relaxed">{keyReason === 'quota' ? `Free pollen habis. Refill otomatis 0.05/jam (max 1.0). Add key buat unlimited.` : keyReason === 'flux2_limit' ? '2 free FLUX.2 Dev used today. Add key or try another model.' : 'This needs your own API key. 30 seconds to get one.'}</p>
             </div>
             <div className="mb-4"><input type="text" value={keyInput} onChange={e => setKeyInput(e.target.value)} placeholder="Paste API key..." className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none" style={{ backgroundColor: 'var(--vs-bg)' }} /></div>
             <button onClick={handleKeySave} disabled={!keyInput.trim()} className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3" style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>Save Key</button>
