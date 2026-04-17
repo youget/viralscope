@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Send, Settings, Copy, Heart, Trash2, BookOpen, Sparkles, ChevronDown,
-  ExternalLink, Loader2, X, RefreshCw, Check } from 'lucide-react'
+import { Send, Settings, Copy, Heart, Trash2, BookOpen, ChevronDown,
+  ExternalLink, Loader2, X, Check, Key } from 'lucide-react'
 import { toast } from '../../components/Toast'
 import { saveSession, updateSession, getSession, toggleSessionFav } from '../../lib/chatdb'
 
@@ -51,63 +51,33 @@ Classify every request into one of four output types before generating anything:
 | C | App Spec | Web app, UI tool, deployable product, build specification |
 | D | Content System | YouTube, website, newsletter, social media, multi-platform brand |
 
-If composite type detected, state clearly and generate layered blueprint.
+Composite types allowed: D+B, C+B, A+C etc. Declare both before generating.
 If unclear → ask: "Is this for a chat experience, a task to automate, an app to build, or a content system?"
 
-## LAYER 1 — ROLE INJECTION
-Define a specific AI persona with relevant sub-domains and experience context.
+## LAYERS 1-6
+Layer 1 ROLE INJECTION: Define specific AI persona with sub-domains.
+Layer 2 CONTEXT PRIMING: Extract Domain, Target Audience, Success Metric. Apply defaults if missing.
+Layer 3 CHECKPOINT: If all 3 vars present → skip. If any missing → max 2 clarifying questions.
+Layer 4 EXECUTION PROTOCOL: Output format, style guide, length target, 1-2 embedded examples.
+Layer 5 QUALITY GUARDRAILS: Actionable claims only. No filler. Blacklist: jargon, vague metrics, AI model refs.
+Layer 6 ITERATION + VERSIONING: After every output show version + A/B/C/D/E optimize options.
 
-## LAYER 2 — CONTEXT PRIMING
-Extract 3 critical variables: Domain/Topic, Target Audience, Success Metric.
-If any missing → apply reasonable defaults, display them, request confirmation.
+## APP SPEC FORMAT (Type C)
+Sections: App Overview, Target User Profile, Tech Stack, MVP Feature Scope, UI Screens & Components, Data Flow, Integrations & Dependencies, Deployment Setup, Development Sprints.
 
-## LAYER 3 — CONDITIONAL CHECKPOINT
-If ALL three variables present → skip to Layer 4.
-If ANY missing → activate checkpoint with max 2 clarifying questions.
-Format: PAUSE. Before continuing, confirm: 1. [missing A] 2. [missing B if needed]
+## CONTENT SYSTEM FORMAT (Type D)
+Sections: Identity System, Content Pillars (5x3 ideas), Platform Strategy, Content Calendar Framework, SEO & Discovery Framework, Monetization Roadmap (Phase 1-3), 90-Day Launch Plan.
 
-## LAYER 4 — EXECUTION PROTOCOL
-Define: output format, all sections, content hierarchy, style/tone guide, output length target, order of information, 1–2 embedded domain-specific examples.
-
-## LAYER 5 — QUALITY GUARDRAILS + TOKEN ESTIMATE
-Every claim must be actionable. No filler phrases. All examples domain-specific. Blueprint executable within 3 conversation turns. Target: under 1,500 tokens per blueprint.
-Blacklist: jargon overload, unsupported generalizations, vague metrics, any AI model/API references.
-
-## LAYER 6 — ITERATION PROTOCOL + VERSIONING
-After every output display:
-\`\`\`
-─────────────────────────────
-Blueprint: [Name]
-Version: v1.0
-Date: [date]
-
-Which aspect to optimize next?
-A) Technical depth
-B) Readability & tone
-C) Content length
-D) Different angle / approach
-E) Other (specify)
-─────────────────────────────
-\`\`\`
-On each revision: increment version (v1.0 → v1.1), log what changed.
-
-## OPENING MESSAGE (display this when starting a new session):
+## OPENING MESSAGE:
 System ready. Describe what you want to build or automate:
 
-Option 1 — Quick:
-One direct sentence describing your task, app, content system, or workflow.
-
+Option 1 — Quick: One direct sentence.
 Option 2 — Structured:
 → Domain: [Topic or field]
 → Target User: [Who uses this output]
 → Success Metric: [What ideal output looks like]
 
-Engine will classify your request and generate the right blueprint format.
-
-## ERROR HANDLING
-Ambiguous input → show 2–3 interpretations, ask user to confirm.
-Domain too broad → force scope narrowing first.
-Composite type → declare both types, generate layered blueprint.`
+Engine will classify your request and generate the right blueprint format.`
 
 // ─── Library prompts ─────────────────────────────────────────────────────────
 
@@ -304,39 +274,49 @@ const BUILDER_MODELS = [
   { id: 'deepseek', label: 'DeepSeek V3.2', free: false },
   { id: 'qwen-large', label: 'Qwen3.6 Plus', free: false },
   { id: 'qwen-coder-large', label: 'Qwen3 Coder Next', free: false },
-  { id: 'qwen-vision', label: 'Qwen3 VL Plus', free: false },
   { id: 'nova', label: 'Nova 2 Lite', free: false },
   { id: 'minimax', label: 'MiniMax M2.5', free: false },
   { id: 'kimi', label: 'Moonshot Kimi K2.5', free: false },
   { id: 'perplexity-fast', label: 'Perplexity Sonar', free: false },
   { id: 'perplexity-reasoning', label: 'Perplexity Sonar Reasoning', free: false },
-  { id: 'glm', label: 'Z.ai GLM-5.1', free: false },
 ]
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
 
 const TAB_CONFIG = {
   peramal: {
-    label: 'Fortune Teller',
-    emoji: '🔮',
+    label: 'Fortune',
     model: 'nova-fast',
-    welcomeContent: "Welcome, seeker. 🔮 The cards are ready to reveal what lies ahead.\n\nAsk about love, career, life path — or simply request your horoscope for today. What would you like to explore?",
+    welcomeContent: "Welcome, seeker. The cards are ready to reveal what lies ahead.\n\nAsk about love, career, life path — or simply request your horoscope for today. What would you like to explore?",
   },
   story: {
-    label: 'Story Builder',
-    emoji: '📖',
+    label: 'Story',
     model: 'mistral',
-    welcomeContent: "Hey, ready to build something? 📖\n\nShare a story idea, a character, a world — or just a feeling you want to explore. We'll build from there, one branch at a time.",
+    welcomeContent: "Hey, ready to build something?\n\nShare a story idea, a character, a world — or just a feeling you want to explore. We'll build from there, one branch at a time.",
   },
   builder: {
-    label: 'Blueprint Builder',
-    emoji: '🏗️',
+    label: 'Builder',
     model: 'gemini-fast',
-    welcomeContent: "**System ready.** Describe what you want to build or automate:\n\n**Option 1 — Quick:**\nOne direct sentence describing your task, app, content system, or workflow.\n\n**Option 2 — Structured:**\n→ Domain: [Topic or field]\n→ Target User: [Who uses this output]\n→ Success Metric: [What ideal output looks like]\n\n*Example: \"Build a content system for a personal finance YouTube channel targeting Gen Z, goal: 10K subs in 6 months.\"*\n\nEngine will classify your request and generate the right blueprint format.",
+    welcomeContent: "**System ready.** Describe what you want to build or automate:\n\n**Option 1 — Quick:**\nOne direct sentence describing your task, app, content system, or workflow.\n\n**Option 2 — Structured:**\n→ Domain: [Topic or field]\n→ Target User: [Who uses this output]\n→ Success Metric: [What ideal output looks like]\n\nEngine will classify your request and generate the right blueprint format.",
   },
 }
 
 const SYSTEM_MAP = { peramal: SYSTEM_PERAMAL, story: SYSTEM_STORY, builder: SYSTEM_BUILDER }
+
+// ─── Builder Gate Questions ───────────────────────────────────────────────────
+
+const BUILDER_QS = {
+  content: [
+    { id: 'niche', q: 'Apa niche & topik utama?', hint: 'Contoh: tech review bahasa Indonesia, finance Gen Z, lifestyle minimalis', ph: 'Deskripsikan niche kamu...' },
+    { id: 'platform', q: 'Platform utama?', type: 'choice', opts: ['YouTube (long-form)', 'Website / Blog', 'Short-form (TikTok/Reels)', 'Newsletter / Email', 'Multi-platform'] },
+    { id: 'goal', q: 'Target utama 90 hari pertama?', hint: 'Angka subscriber, revenue, atau milestone spesifik', ph: 'Contoh: 1.000 subscriber, Rp5jt/bulan dari affiliate...' },
+  ],
+  app: [
+    { id: 'idea', q: 'Deskripsikan app ini dalam satu kalimat.', hint: 'Apa yang dilakukan, untuk siapa, masalah apa yang diselesaikan', ph: 'App ini adalah... yang membantu... untuk...' },
+    { id: 'user', q: 'Siapa target user-nya?', hint: 'Persona spesifik = blueprint yang lebih tajam', ph: 'Contoh: content creator YouTube 18–30 yang kesulitan...' },
+    { id: 'stack', q: 'Tech stack preference?', type: 'choice', opts: ['Next.js + Vercel (recommended)', 'React + Node.js API', 'HTML/CSS/JS serverless', 'Rekomendasikan yang terbaik'] },
+  ],
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -348,23 +328,17 @@ function makeWelcome(tabId) {
   return { role: 'assistant', content: TAB_CONFIG[tabId].welcomeContent, isWelcome: true }
 }
 
-function formatTimestamp(ts) {
-  const d = new Date(ts)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
-// Simple markdown renderer for chat messages
+// Simple markdown renderer
 function renderContent(content) {
   const lines = content.split('\n')
   const result = []
   let inCode = false
   let codeBuffer = []
-  let codeLang = ''
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (line.startsWith('```')) {
-      if (!inCode) { inCode = true; codeLang = line.slice(3).trim(); codeBuffer = [] }
+      if (!inCode) { inCode = true; codeBuffer = [] }
       else {
         result.push(
           <pre key={i} className="my-2 p-3 rounded-lg overflow-x-auto text-[11px] leading-relaxed"
@@ -372,19 +346,17 @@ function renderContent(content) {
             <code>{codeBuffer.join('\n')}</code>
           </pre>
         )
-        inCode = false; codeBuffer = []; codeLang = ''
+        inCode = false; codeBuffer = []
       }
       continue
     }
     if (inCode) { codeBuffer.push(line); continue }
 
-    // Horizontal rule
     if (line.match(/^─+$/) || line.match(/^-{3,}$/)) {
       result.push(<hr key={i} className="my-2 border-t vs-border" />)
       continue
     }
 
-    // Process inline bold and code
     const parts = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/)
     const rendered = parts.map((part, j) => {
       if (part.startsWith('**') && part.endsWith('**')) return <strong key={j}>{part.slice(2, -2)}</strong>
@@ -396,6 +368,133 @@ function renderContent(content) {
     else { result.push(<p key={i} className="leading-relaxed">{rendered}</p>) }
   }
   return result
+}
+
+// ─── Builder Gate UI ─────────────────────────────────────────────────────────
+
+function BuilderGate({ onStart }) {
+  const [step, setStep] = useState('gate') // gate | questions
+  const [type, setType] = useState(null)
+  const [qStep, setQStep] = useState(0)
+  const [answers, setAnswers] = useState({})
+  const [textVal, setTextVal] = useState('')
+
+  const qs = type ? BUILDER_QS[type] : []
+  const currentQ = qs[qStep]
+
+  function selectType(t) {
+    setType(t)
+    setStep('questions')
+    setQStep(0)
+    setAnswers({})
+    setTextVal('')
+  }
+
+  function pickChoice(v) {
+    setAnswers(a => ({ ...a, [currentQ.id]: v }))
+  }
+
+  function nextStep() {
+    const val = currentQ.type === 'choice' ? answers[currentQ.id] : textVal.trim()
+    if (!val) return
+    const newAnswers = { ...answers, [currentQ.id]: val }
+    setAnswers(newAnswers)
+    setTextVal('')
+
+    if (qStep < qs.length - 1) {
+      setQStep(qStep + 1)
+    } else {
+      // Build message and send
+      let msg = ''
+      if (type === 'content') {
+        msg = `Build a Content System blueprint for:\n- Niche: ${newAnswers.niche}\n- Platform: ${newAnswers.platform}\n- Goal: ${newAnswers.goal}`
+      } else {
+        msg = `Build an App Spec blueprint for:\n- App: ${newAnswers.idea}\n- Target user: ${newAnswers.user}\n- Stack: ${newAnswers.stack}`
+      }
+      onStart(msg)
+    }
+  }
+
+  if (step === 'gate') {
+    return (
+      <div className="mx-3 mb-3 rounded-2xl border vs-border overflow-hidden" style={{ background: 'var(--vs-card)' }}>
+        <div className="px-4 pt-4 pb-3 border-b vs-border">
+          <p className="text-xs font-bold vs-text-sub uppercase tracking-wider">Blueprint Engine v3.0</p>
+          <p className="text-sm font-bold vs-text mt-1">Mau build apa hari ini?</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 p-3">
+          <button onClick={() => selectType('content')}
+            className="rounded-xl border vs-border p-3 text-left transition-all hover:border-[var(--vs-accent)]"
+            style={{ background: 'var(--vs-bg)' }}>
+            <div className="text-xl mb-2">📱</div>
+            <p className="text-xs font-bold vs-text">Content System</p>
+            <p className="text-[10px] vs-text-sub mt-1">Channel, site, newsletter, brand</p>
+          </button>
+          <button onClick={() => selectType('app')}
+            className="rounded-xl border vs-border p-3 text-left transition-all hover:border-[var(--vs-accent)]"
+            style={{ background: 'var(--vs-bg)' }}>
+            <div className="text-xl mb-2">⚙️</div>
+            <p className="text-xs font-bold vs-text">App Spec</p>
+            <p className="text-[10px] vs-text-sub mt-1">Web app, SaaS, UI tool</p>
+          </button>
+        </div>
+        <div className="px-3 pb-3">
+          <p className="text-[10px] vs-text-sub text-center">atau ketik langsung di input di bawah</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Questions
+  return (
+    <div className="mx-3 mb-3 rounded-2xl border vs-border overflow-hidden" style={{ background: 'var(--vs-card)' }}>
+      <div className="px-4 pt-4 pb-3 border-b vs-border flex items-center justify-between">
+        <div>
+          <p className="text-xs font-bold vs-text-sub uppercase tracking-wider">
+            {type === 'content' ? 'Content System' : 'App Spec'} · {qStep + 1}/{qs.length}
+          </p>
+          <p className="text-sm font-bold vs-text mt-0.5">{currentQ?.q}</p>
+          {currentQ?.hint && <p className="text-[10px] vs-text-sub mt-0.5">{currentQ.hint}</p>}
+        </div>
+        <button onClick={() => setStep('gate')} className="vs-text-sub p-1.5 hover:vs-text rounded-lg">
+          <X size={14} />
+        </button>
+      </div>
+      <div className="p-3">
+        {currentQ?.type === 'choice' ? (
+          <div className="flex flex-col gap-1.5">
+            {currentQ.opts.map(opt => (
+              <button key={opt} onClick={() => pickChoice(opt)}
+                className="text-left px-3 py-2 rounded-lg text-xs border vs-border transition-all"
+                style={{
+                  background: answers[currentQ.id] === opt ? 'var(--vs-accent)' : 'var(--vs-bg)',
+                  color: answers[currentQ.id] === opt ? '#fff' : 'var(--vs-text)',
+                  borderColor: answers[currentQ.id] === opt ? 'var(--vs-accent)' : undefined,
+                }}>
+                {opt}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <textarea
+            value={textVal}
+            onChange={e => setTextVal(e.target.value)}
+            placeholder={currentQ?.ph}
+            rows={2}
+            className="w-full py-2.5 px-3 rounded-xl text-sm vs-text outline-none resize-none"
+            style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }}
+          />
+        )}
+        <button
+          onClick={nextStep}
+          disabled={currentQ?.type === 'choice' ? !answers[currentQ.id] : !textVal.trim()}
+          className="mt-2.5 w-full py-2 rounded-xl text-xs font-bold transition-all"
+          style={{ background: 'var(--vs-accent)', color: '#fff', opacity: (currentQ?.type === 'choice' ? !answers[currentQ.id] : !textVal.trim()) ? 0.4 : 1 }}>
+          {qStep < qs.length - 1 ? 'Lanjut →' : 'Generate Blueprint →'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -412,6 +511,7 @@ function ChatPageInner() {
   const [sessionIds, setSessionIds] = useState({ peramal: null, story: null, builder: null })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [balance, setBalance] = useState(null)
 
   // Builder settings
   const [builderModel, setBuilderModel] = useState('gemini-fast')
@@ -437,25 +537,33 @@ function ChatPageInner() {
   const inputRef = useRef(null)
 
   useEffect(() => {
-    setUserKey(getUserKey())
+    const k = getUserKey()
+    setUserKey(k)
+    fetchBalance(k)
     const sessionId = searchParams.get('session')
-    const sessionType = searchParams.get('type')
-    if (sessionId) loadFromHistory(parseInt(sessionId), sessionType)
+    if (sessionId) loadFromHistory(parseInt(sessionId))
     const t = searchParams.get('tab')
     if (t && ['peramal', 'story', 'builder', 'library'].includes(t)) setTab(t)
   }, [])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading, tab])
 
-  async function loadFromHistory(id, type) {
+  async function fetchBalance(key) {
+    try {
+      const headers = {}
+      if (key) headers['x-user-key'] = key
+      const res = await fetch('/api/balance', { headers })
+      const data = await res.json()
+      setBalance(data.balance ?? 0)
+    } catch { setBalance(null) }
+  }
+
+  async function loadFromHistory(id) {
     const session = await getSession(id)
     if (!session) return
     const tabId = session.type
     setTab(tabId)
-    setMessages(prev => ({
-      ...prev,
-      [tabId]: [makeWelcome(tabId), ...session.messages],
-    }))
+    setMessages(prev => ({ ...prev, [tabId]: [makeWelcome(tabId), ...session.messages] }))
     setSessionIds(prev => ({ ...prev, [tabId]: id }))
     if (tabId === 'builder' && session.model) setBuilderModel(session.model)
   }
@@ -474,9 +582,10 @@ function ChatPageInner() {
     setShowKeyPopup(false)
     if (pendingAction) pendingAction(keyInput.trim())
     setPendingAction(null)
+    fetchBalance(keyInput.trim())
   }
 
-  function handleKeyClear() { clearUserKey(); setUserKey('') }
+  function handleKeyClear() { clearUserKey(); setUserKey(''); fetchBalance('') }
 
   function getModel() {
     if (tab === 'builder') return builderModel
@@ -499,6 +608,12 @@ function ChatPageInner() {
     doSend(text)
   }
 
+  async function handleBuilderStart(text) {
+    if (!text || loading) return
+    if (needsKey() && !hasKey()) { openKeyPopup('builder_model', () => doSend(text)); return }
+    doSend(text)
+  }
+
   async function doSend(text) {
     const tabId = tab
     const userMsg = { role: 'user', content: text }
@@ -506,7 +621,6 @@ function ChatPageInner() {
     setMessages(prev => ({ ...prev, [tabId]: newMessages }))
     setInput(''); setLoading(true)
 
-    // Build API messages: system + history (no welcome messages)
     const apiMessages = [
       { role: 'system', content: SYSTEM_MAP[tabId] },
       ...newMessages.filter(m => !m.isWelcome).map(m => ({ role: m.role, content: m.content })),
@@ -528,16 +642,15 @@ function ChatPageInner() {
 
       if (data.error) {
         if (data.error === 'quota_exceeded') { setKeyReason('quota'); setShowKeyPopup(true) }
-        else setErrorPopup({ emoji: '💀', title: 'Something went wrong', desc: 'Failed to get a response. Try again.' })
+        else setErrorPopup({ title: 'Something went wrong', desc: 'Failed to get a response. Try again.' })
         setLoading(false); return
       }
 
-      const assistantMsg = { role: 'assistant', content: data.result || "Hmm, no response. Try again?" }
+      const assistantMsg = { role: 'assistant', content: data.result || "No response. Try again?" }
       const finalMessages = [...newMessages, assistantMsg]
       setMessages(prev => ({ ...prev, [tabId]: finalMessages }))
-
-      // Auto-save to IndexedDB
       await autoSave(tabId, finalMessages)
+      fetchBalance(k)
     } catch {
       const errMsg = { role: 'assistant', content: 'Connection error. Try again?' }
       setMessages(prev => ({ ...prev, [tabId]: [...newMessages, errMsg] }))
@@ -547,19 +660,12 @@ function ChatPageInner() {
 
   async function autoSave(tabId, msgs) {
     const saveable = msgs.filter(m => !m.isWelcome)
-    if (saveable.length < 2) return // Need at least 1 user + 1 assistant
-
+    if (saveable.length < 2) return
     const title = saveable.find(m => m.role === 'user')?.content?.slice(0, 60) || 'Untitled'
-
     if (sessionIds[tabId]) {
       await updateSession(sessionIds[tabId], { messages: saveable, title })
     } else {
-      const id = await saveSession({
-        type: tabId,
-        title,
-        messages: saveable,
-        model: getModel(),
-      })
+      const id = await saveSession({ type: tabId, title, messages: saveable, model: getModel() })
       if (id) {
         setSessionIds(prev => ({ ...prev, [tabId]: id }))
         setSavedIndicator(prev => ({ ...prev, [tabId]: true }))
@@ -585,21 +691,58 @@ function ChatPageInner() {
     } catch { toast('Failed to copy') }
   }
 
+  // Show builder gate only when no user messages yet
+  const builderHasUserMsg = tab === 'builder' && messages.builder.some(m => m.role === 'user')
+
   const currentMessages = tab !== 'library' ? (messages[tab] || []) : []
-  const tabCfg = TAB_CONFIG[tab]
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col" style={{ height: 'calc(100vh - 68px)', paddingTop: '56px' }}>
 
-      {/* ── Tab bar ── */}
-      <div className="px-4 pt-4 pb-2 flex-shrink-0">
+      {/* ── Page title ── */}
+      <div className="px-4 pt-3 pb-2 flex-shrink-0">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h1 className="text-lg font-black vs-text">
+              Chat <span className="vs-gradient-text">Playground</span>
+            </h1>
+            <p className="text-[10px] vs-text-sub">unhinged conversations with artificial brainpower</p>
+          </div>
+          {/* Pollen + Key button */}
+          <div className="flex items-center gap-2">
+            {balance !== null && (
+              <span className="text-[10px] vs-text-sub">
+                {balance > 0 ? `${balance.toFixed(2)} pollen` : 'pollen 0'}
+              </span>
+            )}
+            {userKey ? (
+              <button
+                onClick={() => { setKeyReason('manage'); setShowKeyPopup(true) }}
+                className="text-[10px] font-semibold px-2.5 py-1 rounded-full border vs-border vs-text"
+              >
+                key active
+              </button>
+            ) : (
+              <button
+                onClick={() => openKeyPopup('add')}
+                className="text-[10px] font-semibold px-2.5 py-1 rounded-full border vs-border vs-text"
+              >
+                add key
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Tab bar ── */}
         <div className="flex gap-1 vs-card border vs-border rounded-xl p-1">
-          {[...Object.entries(TAB_CONFIG), ['library', { label: 'Library', emoji: '📚' }]].map(([id, cfg]) => (
+          {[...Object.entries(TAB_CONFIG), ['library', { label: 'Library' }]].map(([id, cfg]) => (
             <button key={id} onClick={() => setTab(id)}
-              className="flex-1 py-2 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all"
-              style={{ backgroundColor: tab === id ? 'var(--vs-accent)' : 'transparent', color: tab === id ? '#fff' : 'var(--vs-text-sub)' }}>
-              <span>{cfg.emoji}</span>
-              <span className="hidden sm:inline">{cfg.label}</span>
+              className="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all"
+              style={{
+                backgroundColor: tab === id ? 'var(--vs-accent)' : 'transparent',
+                color: tab === id ? '#fff' : 'var(--vs-text-sub)',
+              }}>
+              {cfg.label}
             </button>
           ))}
         </div>
@@ -611,22 +754,16 @@ function ChatPageInner() {
           <div className="flex items-center gap-2">
             <button onClick={() => setShowSettings(!showSettings)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-xl vs-card border vs-border text-xs vs-text flex-1">
-              <Settings size={12} style={{ color: 'var(--vs-accent)' }} />
+              <Settings size={12} className="vs-text-sub" />
               <span className="flex-1 text-left">{BUILDER_MODELS.find(m => m.id === builderModel)?.label || builderModel}</span>
-              {!BUILDER_MODELS.find(m => m.id === builderModel)?.free && <span className="text-[9px] vs-text-sub">🔑</span>}
+              {!BUILDER_MODELS.find(m => m.id === builderModel)?.free && <span className="text-[10px] vs-text-sub">key</span>}
               <ChevronDown size={12} className="vs-text-sub" style={{ transform: showSettings ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
             </button>
-            {userKey && (
-              <div className="px-2 py-1.5 rounded-xl vs-card border vs-border text-[10px] flex items-center gap-1">
-                <span style={{ color: 'var(--vs-accent)' }}>●</span>
-                <span className="vs-text-sub">Key active</span>
-              </div>
-            )}
           </div>
           {showSettings && (
             <div className="mt-1 vs-card border vs-border rounded-xl max-h-48 overflow-y-auto">
               <div className="p-2 border-b vs-border">
-                <p className="text-[9px] vs-text-sub uppercase tracking-wider px-2">Model · ✨ Free · 🔑 Requires key</p>
+                <p className="text-[9px] vs-text-sub uppercase tracking-wider px-2">Model · free · key required</p>
               </div>
               {BUILDER_MODELS.map(m => (
                 <button key={m.id} onClick={() => {
@@ -635,7 +772,7 @@ function ChatPageInner() {
                 }} className="w-full flex items-center gap-2 px-3 py-2 text-xs vs-hover border-b vs-border last:border-b-0"
                   style={{ color: builderModel === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}>
                   <span className="flex-1 text-left">{m.label}</span>
-                  <span>{m.free ? '✨' : '🔑'}</span>
+                  <span className="vs-text-sub text-[10px]">{m.free ? 'free' : 'key'}</span>
                 </button>
               ))}
             </div>
@@ -645,26 +782,33 @@ function ChatPageInner() {
 
       {/* ── Messages ── */}
       {tab !== 'library' && (
-        <div className="flex-1 overflow-y-auto px-4">
+        <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-3 py-2 pb-4">
+
+            {/* Builder gate - shown when no user messages yet */}
+            {tab === 'builder' && !builderHasUserMsg && (
+              <BuilderGate onStart={handleBuilderStart} />
+            )}
+
             {currentMessages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div key={i} className={`flex px-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[88%] rounded-2xl text-sm ${
                   msg.role === 'user'
                     ? 'px-4 py-3 text-white rounded-br-sm'
-                    : 'px-4 py-3 vs-card border vs-border vs-text rounded-bl-sm'
-                }`} style={msg.role === 'user' ? { backgroundColor: 'var(--vs-accent)' } : {}}>
-
+                    : 'px-4 py-3 rounded-bl-sm'
+                }`}
+                  style={msg.role === 'user'
+                    ? { backgroundColor: 'var(--vs-accent)' }
+                    : { backgroundColor: 'var(--vs-card)', border: '1px solid var(--vs-border)', color: 'var(--vs-text)' }
+                  }>
                   {msg.role === 'assistant' ? (
                     <div className="leading-relaxed">{renderContent(msg.content)}</div>
                   ) : (
                     <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                   )}
-
-                  {/* Copy button for assistant messages */}
                   {msg.role === 'assistant' && !msg.isWelcome && (
                     <button onClick={() => copyMessage(msg.content, i)}
-                      className="mt-2 flex items-center gap-1 text-[10px] vs-text-sub hover:vs-text transition-colors">
+                      className="mt-2 flex items-center gap-1 text-[10px] vs-text-sub">
                       {copiedId === i ? <Check size={10} /> : <Copy size={10} />}
                       {copiedId === i ? 'Copied' : 'Copy'}
                     </button>
@@ -674,8 +818,8 @@ function ChatPageInner() {
             ))}
 
             {loading && (
-              <div className="flex justify-start">
-                <div className="px-4 py-3 rounded-2xl rounded-bl-sm vs-card border vs-border">
+              <div className="flex justify-start px-3">
+                <div className="px-4 py-3 rounded-2xl rounded-bl-sm" style={{ backgroundColor: 'var(--vs-card)', border: '1px solid var(--vs-border)' }}>
                   <Loader2 size={16} className="animate-spin vs-text-sub" />
                 </div>
               </div>
@@ -706,11 +850,11 @@ function ChatPageInner() {
                 <p className="text-xs vs-text-sub leading-relaxed mb-3">{p.description}</p>
                 <div className="flex gap-2">
                   <button onClick={() => setLibSelected(p)}
-                    className="flex-1 vs-btn-outline py-2 rounded-xl text-xs font-semibold gap-1">
+                    className="flex-1 vs-btn-outline py-2 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center">
                     <BookOpen size={12} /> Preview
                   </button>
                   <button onClick={() => copyMessage(p.prompt, p.id)}
-                    className="flex-1 vs-btn py-2 rounded-xl text-xs font-semibold gap-1">
+                    className="flex-1 vs-btn py-2 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center">
                     {copiedId === p.id ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Copy</>}
                   </button>
                 </div>
@@ -724,22 +868,21 @@ function ChatPageInner() {
       {tab !== 'library' && (
         <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t vs-border">
           <div className="flex items-center gap-2 mb-2">
-            {/* Saved indicator */}
             {savedIndicator[tab] && (
               <span className="text-[10px] flex items-center gap-1" style={{ color: 'var(--vs-accent)' }}>
-                <Check size={10} /> Saved to history
+                <Check size={10} /> Saved
               </span>
             )}
             <div className="flex-1" />
-            <button onClick={() => setConfirmClear(true)} className="text-[10px] vs-text-sub hover:underline flex items-center gap-1">
-              <Trash2 size={10} /> Clear chat
+            <button onClick={() => setConfirmClear(true)} className="text-[10px] vs-text-sub flex items-center gap-1">
+              <Trash2 size={10} /> Clear
             </button>
           </div>
           <form onSubmit={handleSend} className="flex gap-2">
             <input ref={inputRef} type="text" value={input} onChange={e => setInput(e.target.value)}
               placeholder={tab === 'peramal' ? 'Ask about your fortune...' : tab === 'story' ? 'Continue the story...' : 'Describe what to build...'}
-              className="flex-1 py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none"
-              style={{ backgroundColor: 'var(--vs-card)' }} />
+              className="flex-1 py-3 px-4 rounded-xl border text-sm vs-text outline-none"
+              style={{ backgroundColor: 'var(--vs-card)', borderColor: 'var(--vs-border)' }} />
             <button type="submit" disabled={loading || !input.trim()}
               className="vs-btn w-11 h-11 rounded-xl flex-shrink-0"
               style={{ opacity: loading || !input.trim() ? 0.5 : 1 }}>
@@ -747,7 +890,7 @@ function ChatPageInner() {
             </button>
           </form>
           <p className="text-[9px] vs-text-sub mt-1.5 text-center">
-            Press Enter to send · Conversations auto-saved to{' '}
+            Auto-saved to{' '}
             <a href="/favorites?tab=chat" className="underline" style={{ color: 'var(--vs-accent)' }}>History</a>
           </p>
         </div>
@@ -764,7 +907,7 @@ function ChatPageInner() {
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => copyMessage(libSelected.prompt, libSelected.id)}
-                  className="vs-btn px-3 py-1.5 rounded-lg text-xs font-semibold gap-1">
+                  className="vs-btn px-3 py-1.5 rounded-lg text-xs font-semibold gap-1 flex items-center">
                   {copiedId === libSelected.id ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
                 </button>
                 <button onClick={() => setLibSelected(null)} className="vs-text-sub p-1.5 vs-hover rounded-lg"><X size={16} /></button>
@@ -783,9 +926,7 @@ function ChatPageInner() {
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
             <p className="text-4xl mb-3">🗑️</p>
             <h3 className="text-lg font-bold vs-text mb-2">Clear this chat?</h3>
-            <p className="text-sm vs-text-sub mb-5">Current conversation will be cleared. Previously saved history remains in{' '}
-              <a href="/favorites?tab=chat" className="underline" style={{ color: 'var(--vs-accent)' }}>History</a>.
-            </p>
+            <p className="text-sm vs-text-sub mb-5">Current conversation will be cleared.</p>
             <div className="flex gap-2">
               <button onClick={() => setConfirmClear(false)} className="flex-1 vs-btn-outline px-4 py-2.5 rounded-xl text-sm font-semibold">Cancel</button>
               <button onClick={clearChat} className="flex-1 vs-btn px-4 py-2.5 rounded-xl text-sm font-semibold">Clear</button>
@@ -800,35 +941,41 @@ function ChatPageInner() {
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full border vs-border" onClick={e => e.stopPropagation()}>
             <div className="text-center mb-4">
               <p className="text-4xl mb-2">{keyReason === 'quota' ? '😭' : '🔑'}</p>
-              <h3 className="text-lg font-bold vs-text mb-1">{keyReason === 'quota' ? 'Pollen depleted' : 'API key required'}</h3>
+              <h3 className="text-lg font-bold vs-text mb-1">
+                {keyReason === 'quota' ? 'Pollen depleted' : userKey ? 'Manage API Key' : 'Add API Key'}
+              </h3>
               <p className="text-xs vs-text-sub leading-relaxed">
-                {keyReason === 'quota' ? 'Server pollen is out. Add your own key to keep chatting.' : 'This model requires your own Pollinations API key.'}
+                {keyReason === 'quota' ? 'Pollen habis. Tambahkan key kamu sendiri.' : 'Key untuk akses model premium dan pollen personal.'}
               </p>
             </div>
-            <input type="text" value={keyInput} onChange={e => setKeyInput(e.target.value)}
-              placeholder="Paste your API key..." onKeyDown={e => e.key === 'Enter' && handleKeySave()}
-              className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none mb-4"
-              style={{ backgroundColor: 'var(--vs-bg)' }} />
-            <button onClick={handleKeySave} disabled={!keyInput.trim()}
-              className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3"
-              style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>
-              Save Key
-            </button>
+            {!userKey || keyReason !== 'manage' ? (
+              <input type="text" value={keyInput} onChange={e => setKeyInput(e.target.value)}
+                placeholder="Paste your API key..." onKeyDown={e => e.key === 'Enter' && handleKeySave()}
+                className="w-full py-3 px-4 rounded-xl border vs-border text-sm vs-text outline-none mb-4"
+                style={{ backgroundColor: 'var(--vs-bg)' }} />
+            ) : null}
+            {(!userKey || keyReason !== 'manage') && (
+              <button onClick={handleKeySave} disabled={!keyInput.trim()}
+                className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3"
+                style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>
+                Save Key
+              </button>
+            )}
             <div className="text-center mb-3">
-              <p className="text-[10px] vs-text-sub mb-2">Don't have a key?</p>
               <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer"
                 className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">
-                Get one at Pollinations <ExternalLink size={12} />
+                Get key at Pollinations <ExternalLink size={12} />
               </a>
             </div>
             {userKey && (
               <div className="pt-3 border-t vs-border text-center">
-                <button onClick={() => { handleKeyClear(); setShowKeyPopup(false) }} className="text-[10px] vs-text-sub hover:underline">Remove active key</button>
+                <p className="text-[10px] vs-text-sub mb-1">Key active · {userKey.slice(0, 8)}...</p>
+                <button onClick={() => { handleKeyClear(); setShowKeyPopup(false) }} className="text-[10px] vs-text-sub hover:underline">Remove key</button>
               </div>
             )}
             <button onClick={() => { setShowKeyPopup(false); setPendingAction(null) }}
               className="w-full text-center text-[10px] vs-text-sub hover:underline mt-3">
-              Maybe later
+              Close
             </button>
           </div>
         </div>
@@ -838,7 +985,7 @@ function ChatPageInner() {
       {errorPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setErrorPopup(null)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
-            <p className="text-4xl mb-3">{errorPopup.emoji}</p>
+            <p className="text-4xl mb-3">💀</p>
             <h3 className="text-lg font-bold vs-text mb-2">{errorPopup.title}</h3>
             <p className="text-sm vs-text-sub mb-5">{errorPopup.desc}</p>
             <button onClick={() => setErrorPopup(null)} className="vs-btn px-6 py-2.5 rounded-xl text-sm font-semibold">Got it</button>
