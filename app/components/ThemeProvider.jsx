@@ -12,9 +12,11 @@ export default function ThemeProvider({ children }) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const saved = localStorage.getItem('vs-theme') || 'dark'
-    setTheme(saved)
-    document.documentElement.classList.toggle('dark', saved === 'dark')
+    const saved = localStorage.getItem('vs-theme')
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const resolved = saved || (systemDark ? 'dark' : 'light')
+    setTheme(resolved)
+    document.documentElement.classList.toggle('dark', resolved === 'dark')
     setMounted(true)
   }, [])
 
