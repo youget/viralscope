@@ -1,16 +1,17 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Trash2, Play, X, Share2, Download, Sparkles, ImageIcon,
-  ChevronLeft, ChevronRight, Copy, MessageSquare, Heart, ExternalLink } from 'lucide-react'
+  ChevronLeft, ChevronRight, Copy, MessageSquare, Heart, ExternalLink,
+  Stars, MessageCircle, Hammer } from 'lucide-react'
 import { toast } from '../components/Toast'
 import { getFavorites, clearFavorites, toggleFavorite } from '../lib/imagedb'
 import { getAllSessions, deleteSession, clearNonFavSessions, clearAllSessions, toggleSessionFav } from '../lib/chatdb'
 
 const FAV_VIDEO_KEY = 'vs-fav-videos'
 const TAB_META = {
-  peramal: { label: 'Fortune', emoji: '🔮' },
-  story:   { label: 'Story',   emoji: '📖' },
-  builder: { label: 'Builder', emoji: '🏗️' },
+  peramal: { label: 'Fortune', Icon: Stars },
+  story:   { label: 'Story',   Icon: MessageCircle },
+  builder: { label: 'Builder', Icon: Hammer },
 }
 
 function formatViews(num) { const n = parseInt(num); if (isNaN(n)) return '0'; if (n >= 1000000) return (n/1000000).toFixed(1)+'M'; if (n >= 1000) return (n/1000).toFixed(1)+'K'; return n.toString() }
@@ -136,14 +137,27 @@ export default function FavoritesPage() {
       {/* ── CHAT TAB ── */}
       {tab === 'chat' && (
         <div>
+          {/* Filter tabs with icons instead of colored emoji */}
           <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-            {['all', 'peramal', 'story', 'builder'].map(f => (
-              <button key={f} onClick={() => setChatFilter(f)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={{ backgroundColor: chatFilter === f ? 'var(--vs-accent)' : 'var(--vs-card)', color: chatFilter === f ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${chatFilter === f ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
-                {f === 'all' ? 'All' : `${TAB_META[f].emoji} ${TAB_META[f].label}`}
-              </button>
-            ))}
+            <button
+              onClick={() => setChatFilter('all')}
+              className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{ backgroundColor: chatFilter === 'all' ? 'var(--vs-accent)' : 'var(--vs-card)', color: chatFilter === 'all' ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${chatFilter === 'all' ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
+              All
+            </button>
+            {['peramal', 'story', 'builder'].map(f => {
+              const { label, Icon } = TAB_META[f]
+              return (
+                <button key={f} onClick={() => setChatFilter(f)}
+                  className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  style={{ backgroundColor: chatFilter === f ? 'var(--vs-accent)' : 'var(--vs-card)', color: chatFilter === f ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${chatFilter === f ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
+                  <div className="flex items-center gap-1">
+                    <Icon size={11} />
+                    <span>{label}</span>
+                  </div>
+                </button>
+              )
+            })}
           </div>
 
           {chatSessions.length > 0 && (
@@ -172,13 +186,14 @@ export default function FavoritesPage() {
             <div className="flex flex-col gap-3">
               {filteredSessions.map(session => {
                 const meta = TAB_META[session.type] || TAB_META.peramal
+                const { Icon } = meta
                 const msgCount = session.messages?.length || 0
                 return (
                   <div key={session.id} className="vs-card border vs-border rounded-xl p-4">
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-xl"
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: 'var(--vs-bg2)' }}>
-                        {meta.emoji}
+                        <Icon size={20} className="vs-text-sub" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
