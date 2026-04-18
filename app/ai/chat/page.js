@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Send, Settings, Copy, Heart, Trash2, BookOpen, ChevronDown,
-  ExternalLink, Loader2, X, Check, Key } from 'lucide-react'
+  ExternalLink, Loader2, X, Check, Key, Stars, MessageCircle, Hammer, ArrowRight } from 'lucide-react'
 import { toast } from '../../components/Toast'
 import { saveSession, updateSession, getSession, toggleSessionFav } from '../../lib/chatdb'
 
@@ -303,18 +303,27 @@ const TAB_CONFIG = {
 
 const SYSTEM_MAP = { peramal: SYSTEM_PERAMAL, story: SYSTEM_STORY, builder: SYSTEM_BUILDER }
 
+// ─── Tab icons ────────────────────────────────────────────────────────────────
+
+const TAB_ICON_MAP = {
+  peramal: Stars,
+  story: MessageCircle,
+  builder: Hammer,
+  library: BookOpen,
+}
+
 // ─── Builder Gate Questions ───────────────────────────────────────────────────
 
 const BUILDER_QS = {
   content: [
-    { id: 'niche', q: 'Apa niche & topik utama?', hint: 'Contoh: tech review bahasa Indonesia, finance Gen Z, lifestyle minimalis', ph: 'Deskripsikan niche kamu...' },
-    { id: 'platform', q: 'Platform utama?', type: 'choice', opts: ['YouTube (long-form)', 'Website / Blog', 'Short-form (TikTok/Reels)', 'Newsletter / Email', 'Multi-platform'] },
-    { id: 'goal', q: 'Target utama 90 hari pertama?', hint: 'Angka subscriber, revenue, atau milestone spesifik', ph: 'Contoh: 1.000 subscriber, Rp5jt/bulan dari affiliate...' },
+    { id: 'niche', q: 'What is your main niche & topic?', hint: 'E.g.: tech reviews, Gen Z finance, minimalist lifestyle', ph: 'Describe your niche...' },
+    { id: 'platform', q: 'Primary platform?', type: 'choice', opts: ['YouTube (long-form)', 'Website / Blog', 'Short-form (TikTok/Reels)', 'Newsletter / Email', 'Multi-platform'] },
+    { id: 'goal', q: 'Main goal for the first 90 days?', hint: 'Subscriber count, revenue, or a specific milestone', ph: 'E.g.: 1,000 subscribers, $500/month from affiliate...' },
   ],
   app: [
-    { id: 'idea', q: 'Deskripsikan app ini dalam satu kalimat.', hint: 'Apa yang dilakukan, untuk siapa, masalah apa yang diselesaikan', ph: 'App ini adalah... yang membantu... untuk...' },
-    { id: 'user', q: 'Siapa target user-nya?', hint: 'Persona spesifik = blueprint yang lebih tajam', ph: 'Contoh: content creator YouTube 18–30 yang kesulitan...' },
-    { id: 'stack', q: 'Tech stack preference?', type: 'choice', opts: ['Next.js + Vercel (recommended)', 'React + Node.js API', 'HTML/CSS/JS serverless', 'Rekomendasikan yang terbaik'] },
+    { id: 'idea', q: 'Describe this app in one sentence.', hint: 'What it does, who it\'s for, what problem it solves', ph: 'This app is... that helps... to...' },
+    { id: 'user', q: 'Who is the target user?', hint: 'Specific persona = sharper blueprint', ph: 'E.g.: YouTube creators 18–30 who struggle with...' },
+    { id: 'stack', q: 'Tech stack preference?', type: 'choice', opts: ['Next.js + Vercel (recommended)', 'React + Node.js API', 'HTML/CSS/JS serverless', 'Recommend the best'] },
   ],
 }
 
@@ -404,7 +413,6 @@ function BuilderGate({ onStart }) {
     if (qStep < qs.length - 1) {
       setQStep(qStep + 1)
     } else {
-      // Build message and send
       let msg = ''
       if (type === 'content') {
         msg = `Build a Content System blueprint for:\n- Niche: ${newAnswers.niche}\n- Platform: ${newAnswers.platform}\n- Goal: ${newAnswers.goal}`
@@ -420,7 +428,7 @@ function BuilderGate({ onStart }) {
       <div className="mx-3 mb-3 rounded-2xl border vs-border overflow-hidden" style={{ background: 'var(--vs-card)' }}>
         <div className="px-4 pt-4 pb-3 border-b vs-border">
           <p className="text-xs font-bold vs-text-sub uppercase tracking-wider">Blueprint Engine v3.0</p>
-          <p className="text-sm font-bold vs-text mt-1">Mau build apa hari ini?</p>
+          <p className="text-sm font-bold vs-text mt-1">What are you building today?</p>
         </div>
         <div className="grid grid-cols-2 gap-3 p-3">
           <button onClick={() => selectType('content')}
@@ -439,7 +447,7 @@ function BuilderGate({ onStart }) {
           </button>
         </div>
         <div className="px-3 pb-3">
-          <p className="text-[10px] vs-text-sub text-center">atau ketik langsung di input di bawah</p>
+          <p className="text-[10px] vs-text-sub text-center">or just type directly below</p>
         </div>
       </div>
     )
@@ -490,7 +498,7 @@ function BuilderGate({ onStart }) {
           disabled={currentQ?.type === 'choice' ? !answers[currentQ.id] : !textVal.trim()}
           className="mt-2.5 w-full py-2 rounded-xl text-xs font-bold transition-all"
           style={{ background: 'var(--vs-accent)', color: '#fff', opacity: (currentQ?.type === 'choice' ? !answers[currentQ.id] : !textVal.trim()) ? 0.4 : 1 }}>
-          {qStep < qs.length - 1 ? 'Lanjut →' : 'Generate Blueprint →'}
+          {qStep < qs.length - 1 ? 'Next →' : 'Generate Blueprint →'}
         </button>
       </div>
     </div>
@@ -526,6 +534,9 @@ function ChatPageInner() {
   const [keyInput, setKeyInput] = useState('')
   const [keyReason, setKeyReason] = useState('')
   const [pendingAction, setPendingAction] = useState(null)
+
+  // Pollen popup
+  const [showPollenPopup, setShowPollenPopup] = useState(false)
 
   // Misc
   const [savedIndicator, setSavedIndicator] = useState({ peramal: false, story: false, builder: false })
@@ -691,7 +702,6 @@ function ChatPageInner() {
     } catch { toast('Failed to copy') }
   }
 
-  // Show builder gate only when no user messages yet
   const builderHasUserMsg = tab === 'builder' && messages.builder.some(m => m.role === 'user')
 
   const currentMessages = tab !== 'library' ? (messages[tab] || []) : []
@@ -701,50 +711,64 @@ function ChatPageInner() {
 
       {/* ── Page title ── */}
       <div className="px-4 pt-3 pb-2 flex-shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h1 className="text-lg font-black vs-text">
-              Chat <span className="vs-gradient-text">Playground</span>
-            </h1>
-            <p className="text-[10px] vs-text-sub">unhinged conversations with artificial brainpower</p>
-          </div>
-          {/* Pollen + Key button */}
-          <div className="flex items-center gap-2">
-            {balance !== null && (
-              <span className="text-[10px] vs-text-sub">
-                {balance > 0 ? `${balance.toFixed(2)} pollen` : 'pollen 0'}
-              </span>
+        <h1 className="text-2xl font-black vs-text text-center mb-1">
+          AI <span className="vs-gradient-text">Chat</span>
+        </h1>
+        <p className="text-xs vs-text-sub text-center mb-3">smart conversations with artificial brainpower</p>
+
+        {/* Balance + key bar — same as create page */}
+        <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
+            {balance !== null ? (
+              <button
+                onClick={() => setShowPollenPopup(true)}
+                className="vs-text-sub hover:underline"
+              >
+                {balance > 0 ? `${balance.toFixed(3)} pollen` : 'pollen depleted'}
+              </button>
+            ) : (
+              <span className="vs-text-sub">Loading...</span>
             )}
             {userKey ? (
               <button
                 onClick={() => { setKeyReason('manage'); setShowKeyPopup(true) }}
-                className="text-[10px] font-semibold px-2.5 py-1 rounded-full border vs-border vs-text"
+                className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1"
               >
                 key active
               </button>
             ) : (
               <button
                 onClick={() => openKeyPopup('add')}
-                className="text-[10px] font-semibold px-2.5 py-1 rounded-full border vs-border vs-text"
+                className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1"
               >
                 add key
               </button>
             )}
           </div>
+          <a
+            href="/ai/create"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px] font-semibold vs-text hover:opacity-75 transition-opacity"
+          >
+            Create Tools <ArrowRight size={10} />
+          </a>
         </div>
 
         {/* ── Tab bar ── */}
         <div className="flex gap-1 vs-card border vs-border rounded-xl p-1">
-          {[...Object.entries(TAB_CONFIG), ['library', { label: 'Library' }]].map(([id, cfg]) => (
-            <button key={id} onClick={() => setTab(id)}
-              className="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all"
-              style={{
-                backgroundColor: tab === id ? 'var(--vs-accent)' : 'transparent',
-                color: tab === id ? '#fff' : 'var(--vs-text-sub)',
-              }}>
-              {cfg.label}
-            </button>
-          ))}
+          {[...Object.entries(TAB_CONFIG), ['library', { label: 'Library' }]].map(([id, cfg]) => {
+            const Icon = TAB_ICON_MAP[id]
+            return (
+              <button key={id} onClick={() => setTab(id)}
+                className="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1"
+                style={{
+                  backgroundColor: tab === id ? 'var(--vs-accent)' : 'transparent',
+                  color: tab === id ? '#fff' : 'var(--vs-text-sub)',
+                }}>
+                {Icon && <Icon size={11} />}
+                {cfg.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -785,7 +809,6 @@ function ChatPageInner() {
         <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-3 py-2 pb-4">
 
-            {/* Builder gate - shown when no user messages yet */}
             {tab === 'builder' && !builderHasUserMsg && (
               <BuilderGate onStart={handleBuilderStart} />
             )}
@@ -935,6 +958,36 @@ function ChatPageInner() {
         </div>
       )}
 
+      {/* ── Pollen info popup ── */}
+      {showPollenPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowPollenPopup(false)}>
+          <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
+            <p className="text-4xl mb-3">🌼</p>
+            <h3 className="text-lg font-bold vs-text mb-2">Your Pollen Situation</h3>
+            <div className="vs-card border vs-border rounded-xl p-3 mb-4" style={{ background: 'var(--vs-bg)' }}>
+              <p className="text-2xl font-black vs-gradient-text">
+                {balance !== null ? balance.toFixed(3) : '...'}
+              </p>
+              <p className="text-[10px] vs-text-sub mt-1">pollen remaining</p>
+            </div>
+            <p className="text-xs vs-text-sub leading-relaxed mb-2">
+              resets every hour whether you're ready or not 💀
+            </p>
+            <p className="text-xs vs-text-sub leading-relaxed mb-4">
+              it's giving vending machine energy — insert prompt, get output, wait for refill. add your own key to skip the wait fr fr 🔑
+            </p>
+            <button onClick={() => { setShowPollenPopup(false); setKeyReason('add'); setShowKeyPopup(true) }}
+              className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
+              Add API Key — Skip the Queue
+            </button>
+            <button onClick={() => setShowPollenPopup(false)}
+              className="w-full text-center text-[10px] vs-text-sub hover:underline">
+              got it, i'll wait
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Key popup ── */}
       {showKeyPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => { setShowKeyPopup(false); setPendingAction(null) }}>
@@ -945,7 +998,7 @@ function ChatPageInner() {
                 {keyReason === 'quota' ? 'Pollen depleted' : userKey ? 'Manage API Key' : 'Add API Key'}
               </h3>
               <p className="text-xs vs-text-sub leading-relaxed">
-                {keyReason === 'quota' ? 'Pollen habis. Tambahkan key kamu sendiri.' : 'Key untuk akses model premium dan pollen personal.'}
+                {keyReason === 'quota' ? 'Pollen is out. Add your own key to keep going.' : 'Key for accessing premium models and personal pollen.'}
               </p>
             </div>
             {!userKey || keyReason !== 'manage' ? (
