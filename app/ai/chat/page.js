@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Send, Settings, Copy, Heart, Trash2, BookOpen, ChevronDown,
-  ExternalLink, Loader2, X, Check, Key, Stars, MessageCircle, Hammer, ArrowRight } from 'lucide-react'
+  ExternalLink, Loader2, X, Check, Stars, MessageCircle, Hammer,
+  ArrowRight, Monitor, Code2 } from 'lucide-react'
 import { toast } from '../../components/Toast'
 import { saveSession, updateSession, getSession, toggleSessionFav } from '../../lib/chatdb'
 
@@ -303,7 +304,7 @@ const TAB_CONFIG = {
 
 const SYSTEM_MAP = { peramal: SYSTEM_PERAMAL, story: SYSTEM_STORY, builder: SYSTEM_BUILDER }
 
-// ─── Tab icons ────────────────────────────────────────────────────────────────
+// ─── Tab icons ─────────────────────────────────────────────────────────────────
 
 const TAB_ICON_MAP = {
   peramal: Stars,
@@ -321,7 +322,7 @@ const BUILDER_QS = {
     { id: 'goal', q: 'Main goal for the first 90 days?', hint: 'Subscriber count, revenue, or a specific milestone', ph: 'E.g.: 1,000 subscribers, $500/month from affiliate...' },
   ],
   app: [
-    { id: 'idea', q: 'Describe this app in one sentence.', hint: 'What it does, who it\'s for, what problem it solves', ph: 'This app is... that helps... to...' },
+    { id: 'idea', q: 'Describe this app in one sentence.', hint: "What it does, who it's for, what problem it solves", ph: 'This app is... that helps... to...' },
     { id: 'user', q: 'Who is the target user?', hint: 'Specific persona = sharper blueprint', ph: 'E.g.: YouTube creators 18–30 who struggle with...' },
     { id: 'stack', q: 'Tech stack preference?', type: 'choice', opts: ['Next.js + Vercel (recommended)', 'React + Node.js API', 'HTML/CSS/JS serverless', 'Recommend the best'] },
   ],
@@ -382,7 +383,7 @@ function renderContent(content) {
 // ─── Builder Gate UI ─────────────────────────────────────────────────────────
 
 function BuilderGate({ onStart }) {
-  const [step, setStep] = useState('gate') // gate | questions
+  const [step, setStep] = useState('gate')
   const [type, setType] = useState(null)
   const [qStep, setQStep] = useState(0)
   const [answers, setAnswers] = useState({})
@@ -392,11 +393,7 @@ function BuilderGate({ onStart }) {
   const currentQ = qs[qStep]
 
   function selectType(t) {
-    setType(t)
-    setStep('questions')
-    setQStep(0)
-    setAnswers({})
-    setTextVal('')
+    setType(t); setStep('questions'); setQStep(0); setAnswers({}); setTextVal('')
   }
 
   function pickChoice(v) {
@@ -407,8 +404,7 @@ function BuilderGate({ onStart }) {
     const val = currentQ.type === 'choice' ? answers[currentQ.id] : textVal.trim()
     if (!val) return
     const newAnswers = { ...answers, [currentQ.id]: val }
-    setAnswers(newAnswers)
-    setTextVal('')
+    setAnswers(newAnswers); setTextVal('')
 
     if (qStep < qs.length - 1) {
       setQStep(qStep + 1)
@@ -434,14 +430,18 @@ function BuilderGate({ onStart }) {
           <button onClick={() => selectType('content')}
             className="rounded-xl border vs-border p-3 text-left transition-all hover:border-[var(--vs-accent)]"
             style={{ background: 'var(--vs-bg)' }}>
-            <div className="text-xl mb-2">📱</div>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2" style={{ backgroundColor: 'var(--vs-bg2)' }}>
+              <Monitor size={16} style={{ color: 'var(--vs-text)' }} />
+            </div>
             <p className="text-xs font-bold vs-text">Content System</p>
             <p className="text-[10px] vs-text-sub mt-1">Channel, site, newsletter, brand</p>
           </button>
           <button onClick={() => selectType('app')}
             className="rounded-xl border vs-border p-3 text-left transition-all hover:border-[var(--vs-accent)]"
             style={{ background: 'var(--vs-bg)' }}>
-            <div className="text-xl mb-2">⚙️</div>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2" style={{ backgroundColor: 'var(--vs-bg2)' }}>
+              <Code2 size={16} style={{ color: 'var(--vs-text)' }} />
+            </div>
             <p className="text-xs font-bold vs-text">App Spec</p>
             <p className="text-[10px] vs-text-sub mt-1">Web app, SaaS, UI tool</p>
           </button>
@@ -453,7 +453,6 @@ function BuilderGate({ onStart }) {
     )
   }
 
-  // Questions
   return (
     <div className="mx-3 mb-3 rounded-2xl border vs-border overflow-hidden" style={{ background: 'var(--vs-card)' }}>
       <div className="px-4 pt-4 pb-3 border-b vs-border flex items-center justify-between">
@@ -521,24 +520,19 @@ function ChatPageInner() {
   const [loading, setLoading] = useState(false)
   const [balance, setBalance] = useState(null)
 
-  // Builder settings
   const [builderModel, setBuilderModel] = useState('gemini-fast')
   const [showSettings, setShowSettings] = useState(false)
 
-  // Library
   const [libSelected, setLibSelected] = useState(null)
 
-  // Key popup
   const [userKey, setUserKey] = useState('')
   const [showKeyPopup, setShowKeyPopup] = useState(false)
   const [keyInput, setKeyInput] = useState('')
   const [keyReason, setKeyReason] = useState('')
   const [pendingAction, setPendingAction] = useState(null)
 
-  // Pollen popup
   const [showPollenPopup, setShowPollenPopup] = useState(false)
 
-  // Misc
   const [savedIndicator, setSavedIndicator] = useState({ peramal: false, story: false, builder: false })
   const [copiedId, setCopiedId] = useState(null)
   const [confirmClear, setConfirmClear] = useState(false)
@@ -703,11 +697,11 @@ function ChatPageInner() {
   }
 
   const builderHasUserMsg = tab === 'builder' && messages.builder.some(m => m.role === 'user')
-
   const currentMessages = tab !== 'library' ? (messages[tab] || []) : []
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col" style={{ height: 'calc(100vh - 68px)', paddingTop: '56px' }}>
+    // No paddingTop — TopBar is gone from non-landing pages
+    <div className="max-w-2xl mx-auto flex flex-col" style={{ height: 'calc(100vh - 68px)' }}>
 
       {/* ── Page title ── */}
       <div className="px-4 pt-3 pb-2 flex-shrink-0">
@@ -716,8 +710,9 @@ function ChatPageInner() {
         </h1>
         <p className="text-xs vs-text-sub text-center mb-3">smart conversations with artificial brainpower</p>
 
-        {/* Balance + key bar — same as create page */}
-        <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
+        {/* ── Balance bar — pollen left, create tools right ── */}
+        <div className="flex items-center justify-between gap-2 mb-3">
+          {/* Pollen pill — left */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
             {balance !== null ? (
               <button
@@ -745,6 +740,7 @@ function ChatPageInner() {
               </button>
             )}
           </div>
+          {/* Create Tools — right */}
           <a
             href="/ai/create"
             className="flex items-center gap-1 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px] font-semibold vs-text hover:opacity-75 transition-opacity"
@@ -801,6 +797,8 @@ function ChatPageInner() {
               ))}
             </div>
           )}
+          {/* Model tier hint — same as create page */}
+          <p className="text-[10px] vs-text-sub mt-1.5">free · no key needed &nbsp;|&nbsp; key · your own API key</p>
         </div>
       )}
 
@@ -808,7 +806,6 @@ function ChatPageInner() {
       {tab !== 'library' && (
         <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-3 py-2 pb-4">
-
             {tab === 'builder' && !builderHasUserMsg && (
               <BuilderGate onStart={handleBuilderStart} />
             )}
@@ -958,32 +955,65 @@ function ChatPageInner() {
         </div>
       )}
 
-      {/* ── Pollen info popup ── */}
+      {/* ── Pollen popup — 2 variants based on key status ── */}
       {showPollenPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowPollenPopup(false)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
-            <p className="text-4xl mb-3">🌼</p>
-            <h3 className="text-lg font-bold vs-text mb-2">Your Pollen Situation</h3>
-            <div className="vs-card border vs-border rounded-xl p-3 mb-4" style={{ background: 'var(--vs-bg)' }}>
-              <p className="text-2xl font-black vs-gradient-text">
-                {balance !== null ? balance.toFixed(3) : '...'}
-              </p>
-              <p className="text-[10px] vs-text-sub mt-1">pollen remaining</p>
-            </div>
-            <p className="text-xs vs-text-sub leading-relaxed mb-2">
-              resets every hour whether you're ready or not 💀
-            </p>
-            <p className="text-xs vs-text-sub leading-relaxed mb-4">
-              it's giving vending machine energy — insert prompt, get output, wait for refill. add your own key to skip the wait fr fr 🔑
-            </p>
-            <button onClick={() => { setShowPollenPopup(false); setKeyReason('add'); setShowKeyPopup(true) }}
-              className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
-              Add API Key — Skip the Queue
-            </button>
-            <button onClick={() => setShowPollenPopup(false)}
-              className="w-full text-center text-[10px] vs-text-sub hover:underline">
-              got it, i'll wait
-            </button>
+
+            {!userKey ? (
+              /* Variant 1: No key — existing copy, don't change */
+              <>
+                <p className="text-4xl mb-3">🌼</p>
+                <h3 className="text-lg font-bold vs-text mb-2">Your Pollen Situation</h3>
+                <div className="vs-card border vs-border rounded-xl p-3 mb-4" style={{ background: 'var(--vs-bg)' }}>
+                  <p className="text-2xl font-black vs-gradient-text">
+                    {balance !== null ? balance.toFixed(3) : '...'}
+                  </p>
+                  <p className="text-[10px] vs-text-sub mt-1">pollen remaining</p>
+                </div>
+                <p className="text-xs vs-text-sub leading-relaxed mb-2">
+                  resets every hour whether you&apos;re ready or not 💀
+                </p>
+                <p className="text-xs vs-text-sub leading-relaxed mb-4">
+                  it&apos;s giving vending machine energy — insert prompt, get output, wait for refill. add your own key to skip the wait fr fr 🔑
+                </p>
+                <button onClick={() => { setShowPollenPopup(false); setKeyReason('add'); setShowKeyPopup(true) }}
+                  className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
+                  Add API Key — Skip the Queue
+                </button>
+                <button onClick={() => setShowPollenPopup(false)}
+                  className="w-full text-center text-[10px] vs-text-sub hover:underline">
+                  got it, i&apos;ll wait
+                </button>
+              </>
+            ) : (
+              /* Variant 2: Has key — power user vibes */
+              <>
+                <p className="text-4xl mb-3">✨</p>
+                <h3 className="text-lg font-bold vs-text mb-2">you&apos;re built different</h3>
+                <div className="vs-card border vs-border rounded-xl p-3 mb-4" style={{ background: 'var(--vs-bg)' }}>
+                  <p className="text-2xl font-black vs-gradient-text">
+                    {balance !== null ? balance.toFixed(3) : '...'}
+                  </p>
+                  <p className="text-[10px] vs-text-sub mt-1">pollen in your tank</p>
+                </div>
+                <p className="text-xs font-semibold vs-text-sub mb-1">
+                  🔑 key: {userKey.slice(0, 8)}...
+                </p>
+                <p className="text-xs vs-text-sub leading-relaxed mb-4">
+                  you brought your own key. respect. no hourly refreshes, no begging for pollen. while everyone else is waiting in line, you&apos;re just out here eating. 😤
+                </p>
+                <button
+                  onClick={() => { setShowPollenPopup(false); setKeyReason('manage'); setShowKeyPopup(true) }}
+                  className="vs-btn-outline w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
+                  Manage Key
+                </button>
+                <button onClick={() => setShowPollenPopup(false)}
+                  className="w-full text-center text-[10px] vs-text-sub hover:underline">
+                  close
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1001,12 +1031,12 @@ function ChatPageInner() {
                 {keyReason === 'quota' ? 'Pollen is out. Add your own key to keep going.' : 'Key for accessing premium models and personal pollen.'}
               </p>
             </div>
-            {!userKey || keyReason !== 'manage' ? (
+            {(!userKey || keyReason !== 'manage') && (
               <input type="text" value={keyInput} onChange={e => setKeyInput(e.target.value)}
                 placeholder="Paste your API key..." onKeyDown={e => e.key === 'Enter' && handleKeySave()}
                 className="w-full py-3 px-4 rounded-xl border vs-border text-sm vs-text outline-none mb-4"
                 style={{ backgroundColor: 'var(--vs-bg)' }} />
-            ) : null}
+            )}
             {(!userKey || keyReason !== 'manage') && (
               <button onClick={handleKeySave} disabled={!keyInput.trim()}
                 className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3"
