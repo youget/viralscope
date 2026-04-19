@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Sun, Moon, Menu, X, ExternalLink, Download } from 'lucide-react'
-import { useTheme } from './ThemeProvider'
+import { Menu, X, ExternalLink, Download } from 'lucide-react'
+import { usePathname } from 'next/navigation'
 
 const sideMenuItems = [
   { label: 'About', href: '/about' },
@@ -11,12 +11,13 @@ const sideMenuItems = [
 ]
 
 export default function TopBar() {
+  const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const [installPrompt, setInstallPrompt] = useState(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
-  const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
+    if (pathname !== '/') return
     const handler = (e) => {
       e.preventDefault()
       setInstallPrompt(e)
@@ -25,7 +26,10 @@ export default function TopBar() {
     }
     window.addEventListener('beforeinstallprompt', handler)
     return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
+  }, [pathname])
+
+  // Only render on landing page
+  if (pathname !== '/') return null
 
   async function handleInstall() {
     if (!installPrompt) return
@@ -71,13 +75,6 @@ export default function TopBar() {
           </a>
           <div className="flex items-center gap-1">
             <button
-              onClick={toggleTheme}
-              className="w-10 h-10 flex items-center justify-center rounded-xl vs-hover transition-colors vs-text"
-              aria-label="Toggle theme"
-            >
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            <button
               onClick={() => setMenuOpen(!menuOpen)}
               className="w-10 h-10 flex items-center justify-center rounded-xl vs-hover transition-colors vs-text"
               aria-label="Menu"
@@ -114,7 +111,6 @@ export default function TopBar() {
                 </a>
               ))}
 
-              {/* Install App */}
               {installPrompt && (
                 <button
                   onClick={() => { handleInstall(); setMenuOpen(false) }}
@@ -126,7 +122,6 @@ export default function TopBar() {
               )}
             </nav>
 
-            {/* Key Status */}
             <div className="mt-6 px-4">
               <p className="text-xs font-semibold vs-text-sub uppercase tracking-wider mb-2">API Key</p>
               <KeyStatus />
