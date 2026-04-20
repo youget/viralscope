@@ -3,7 +3,7 @@ import { Flame, Zap, Heart, ArrowRight } from 'lucide-react'
 const features = [
   {
     icon: Flame,
-    title: 'Viral Videos',
+    title: 'Vibes Videos',
     desc: "Under 2 minutes. Because let's be honest, your attention span clocked out after the first sentence.",
   },
   {
@@ -19,7 +19,7 @@ const features = [
 ]
 
 const steps = [
-  { num: '01', text: 'Open ViralScape' },
+  { num: '01', text: 'Open VibeScape' },
   { num: '02', text: 'Lose 3 hours of your life' },
   { num: '03', text: 'Question your life choices' },
 ]
