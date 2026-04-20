@@ -7,7 +7,7 @@ const chatTools = [
     icon: Stars,
     label: 'Fortune',
     desc: 'Tarot readings, horoscopes, and all the mystical stuff that scares you but keeps you coming back.',
-    href: '/ai/chat?tab=peramal',
+    href: '/ai/chat?tab=fortune',
   },
   {
     icon: MessageCircle,
